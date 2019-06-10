@@ -12,14 +12,20 @@ import logging
 
 class Dataset:
     """
-    Intermediate object for dataset. This is user exposed and has the exception handling
-    
+    Intermediate object for dataset. This is user exposed and has the exception handling.
+    The process() method will start the loop over the files and comverion to HDf5. Before
+    running this run:
+    1.) addFiles()
+    2.) setOutputBranches()
+
+
     Args:
       outputName (str) : Name of the output file
       treeName (str) : Name of the ROOT::TTree in the files
     """
     def __init__(self, outputName, outputdir=".", treeName="tree"):
         self.outputName = outputName
+        logging.info("Initializing Dataset with output Name: %s", outputName)
         self.outputdir = outputdir
         self.treeName = treeName
         self.encoding = "UTF-8"
@@ -65,16 +71,19 @@ class Dataset:
             df = self.getSelectedDataframe(tree)
 
             evProcessed += len(df)
+            logging.debug("File %s - Processed events %s", iFile, evProcessed)
+            
             if self.outputIndex is not None:
                 df.set_index(self.outputIndex, inplace=True)
             #Add to final dataframe
             if outputDF.empty:
+                logging.debug("Initial output dataframe")
                 outputDF = df
             else:
                 outputDF = pd.concat([outputDF,df])
                 
             if evProcessed > maxEvents:
-                logging.info("*"*30)
+                logging.info("*"*20)
                 logging.info("maxEvents reached")
                 break
 
@@ -110,6 +119,7 @@ class Dataset:
             self.filesAdded = True
             
         for f in fileList:
+            logging.debug("Adding file: %s", f)
             if self.branches == self.getBranchesFromFile(f):
                 self.files.append(f)
             else:
@@ -121,6 +131,7 @@ class Dataset:
             raise RuntimeError("Set at least one input file (and therefor the valid branches) before running this")
         
         for br in branchList:
+            logging.debug("Adding output branch: %s", br)
             if br not in self.branches:
                 raise KeyError("Branch %s not in tree branches"%br)
             else:
