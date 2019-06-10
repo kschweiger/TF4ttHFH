@@ -19,3 +19,5 @@ def initLogging(thisLevel):
         format=log_format,
         level=thisLevel,
     )
+
+    return True

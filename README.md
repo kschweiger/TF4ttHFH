@@ -1,3 +1,5 @@
+![Coverage](https://img.shields.io/badge/pytest--cov-83%25-yellow.svg?longCache=true&style=flat-square)
+![Tests](https://img.shields.io/badge/Test%20passing-true-green.svg?longCache=true&style=flat-square)
 # TF4ttHFH
 
 Framework for classification (using TensorFlow) for ttH(bb) in the fully-hadronic channel
@@ -75,3 +77,16 @@ Does **not** work on: *lxplus6* or *t3ui01..03*
 
 ## Preprocessing
 Since all processing (aside form this) is done within CMSSW the first step is preprocessing a **flat** ROOT::TTree. To be independent on ROOT the uproot package is used
+
+
+# Mics
+
+## Tests
+All tests are located in the test folder. Run tests with
+```bash
+python -m pytest test/
+```
+or run coverage with
+```bash
+python -m pytest --cov-report=html --cov=. test/
+```
