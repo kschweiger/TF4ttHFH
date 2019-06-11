@@ -76,7 +76,9 @@ Does **not** work on: *lxplus6* or *t3ui01..03*
 # Operating the framework
 
 ## Preprocessing
-Since all processing (aside form this) is done within CMSSW the first step is preprocessing a **flat** ROOT::TTree. To be independent on ROOT the uproot package is used
+Since all processing (aside form this) is done within CMSSW the first step is preprocessing a **flat** ROOT::TTree. To be independent on ROOT the uproot package is used. 
+The Dataset class implements the routines required to convert the flat tree to a .h5 file that can be used in the training. Using the Dataset.outputBranches paramter will set the branches that are written to the output file. In order to make further selection used the Dataset.selection and  Dataset.sampleSelection. All variables in the selection are required to be present in the input tree and normal binary operations (and, or) can be used (check pandas.dataframe.query for more information).    
+Run the preprocessing with the `convertTree.py` script. It requires a configuration file defining input files, ouput paramters and selections. See `data/testPreprocessor.cfg` for an example.
 
 
 # Mics
@@ -89,4 +91,10 @@ python -m pytest test/
 or run coverage with
 ```bash
 python -m pytest --cov-report=html --cov=. test/
+```
+
+## Linting
+Style defintions are located in .pylintrc. Run with
+```bash
+python -m pylint [folder/file]
 ```

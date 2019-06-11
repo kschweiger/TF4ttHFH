@@ -14,7 +14,7 @@ import pandas as pd
 import copy
 
 from utils.ConfigReader import ConfigReaderBase
-from preprocessing.utils import initLogging
+from utils.utils import initLogging
 
 import pytest
 
