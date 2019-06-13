@@ -3,7 +3,7 @@
 ## Commands
 | command | usage                              | options                                  |
 | ------- | ---------------------------------- | ---------------------------------------- |
-| [sbatch](https://slurm.schedmd.com/sbatch.html#index)  | submit a script to the slurm batch | -p [wn/gpu] -- can also be set in script |
+| [sbatch](https://slurm.schedmd.com/sbatch.html#index)  | submit a script to the slurm batch | -p [wn/gpu] --> can also be set in script |
 | squeue  | Check the queues                   |                                          |
 | scancel | kill jobs                          | -u [USERNAME]                            |
 |         |                                    |  -n [JOBNAME]                            |
@@ -25,7 +25,7 @@ Important options:
 | ------------------ | ------------------------- | -------------------------------------------------------- |
 | -p [node]          | sets the node             | Use wn for CPU and gpu for GPU node                      |
 | -o [filename]      | Sets std out file         | Use `%A` to insert job id - Folders will not be created! |
-| -3 [filename]      | Sets std err file         | Use `%A` to insert job id - Folders will not be created! |
+| -e [filename]      | Sets std err file         | Use `%A` to insert job id - Folders will not be created! |
 | --ntasks=XX        | Number of CPUs requested  | On GPU nodes: balance between CPU and GPU : 5CPU/1GPU    |
 | --mem=XXXM         | sets node memory          | Set memory **per node**                                  |
 | --time=XX-XX.XX    | Time limit                | Set in DD-HH:MM format                                   |
