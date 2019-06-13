@@ -1,11 +1,13 @@
 #Example from
 #https://keras.io/getting-started/sequential-model-guide/#multilayer-perceptron-mlp-for-multi-class-softmax-classification
+import tensorflow as tf
 
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.optimizers import SGD
 
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 # Generate dummy data
 import numpy as np
 x_train = np.random.random((1000, 20))

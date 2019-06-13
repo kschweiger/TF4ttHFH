@@ -45,11 +45,11 @@ env PYTHON_CONFIGURE_OPTS="--enable-shared" TMPDIR="/path/to/custom/tmp" pyenv i
 
 # Setup
 
-Run `setup.sh` for automated setup after cloning the repo.
+Run `setup.sh` for automated setup after cloning the repo. (See special instructions for T3@PSI)
 
 Running 
 ```bash
-export KERAS_BACKEND=tensorflow
+soruce init.sh
 ```
 is required every time.
 
@@ -63,6 +63,10 @@ Since TensorFlow will not be built from source is requires glibc > 1.17. This is
 Works on: *lxplus7* or t3ui07      
 Does **not** work on: *lxplus6* or *t3ui01..03*
 
+### READ if running on T3@PSI
+GPU operation on T3@PSI is currently only working with anaconda (since it get shipped with required libs). Use the setup `setup_t3PSI.sh` in this case. This will install 
+- Anaconda 2018.12 and create venv (and downgrade to python 3.6.8)
+- A CPU `TFCPU` and GPU `TFGPU` enabled venv will be initialized with TF and keras (only the former will install all packages required for preprocessing)
 
 ## Current versions
 
@@ -76,10 +80,17 @@ Does **not** work on: *lxplus6* or *t3ui01..03*
 # Operating the framework
 
 ## Preprocessing
-Since all processing (aside form this) is done within CMSSW the first step is preprocessing a **flat** ROOT::TTree. To be independent on ROOT the uproot package is used. 
+Since all processing (aside form this) is done within CMSSW the first step is preprocessing a **flat** ROOT::TTree (see note). To be independent on ROOT the uproot package is used. 
 The Dataset class implements the routines required to convert the flat tree to a .h5 file that can be used in the training. Using the Dataset.outputBranches paramter will set the branches that are written to the output file. In order to make further selection used the Dataset.selection and  Dataset.sampleSelection. All variables in the selection are required to be present in the input tree and normal binary operations (and, or) can be used (check pandas.dataframe.query for more information).    
 Run the preprocessing with the `convertTree.py` script. It requires a configuration file defining input files, ouput paramters and selections. See `data/testPreprocessor.cfg` for an example.
 
+### Note
+Flattening of ROOT::TTrees or adding of variables is not part of the proprocesser on purpos in order to avoid dependencies on ROOT itself. The main motivation for this is to have the possibility to used python/TF/Keras version that are not native to the root/CMSSW environment on a cluster.      
+In an environment with root access it is not problem to compile a root version against the python version used for TF. Example instructions for this can be found [here](https://gitlab.cern.ch/koschwei/Documentation/blob/master/Notes/04_root.md#43-compiling-on-macos-with-pyenv)(CMS-internal link)      
+For the ttH(FH) UZH group a flattener can be found [here](https://gitlab.cern.ch/Zurich_ttH/FHDownstream/blob/FullRunII_dev/nTupleProcessing/classification/flatNprocess.py) (CMS-internal link)
+
+## The SLURM cluster (T3@PSI)
+In order to run on GPUs from the T3@PSI the SLURM cluser needs to be used. See [README](slurm/README.md) for instructions and tests.
 
 # Mics
 
