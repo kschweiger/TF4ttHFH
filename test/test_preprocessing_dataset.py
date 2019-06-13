@@ -106,6 +106,63 @@ def test_Dataset_setOutputBranches(mockTree):
     newDataset.setOutputBranches(expectedBranches)
 
     assert expectedBranches == newDataset.outputBranches and newDataset.outputBranchesSet
+
+def test_Dataset_resolveWildcardBranch_expection():
+    newDataset = Dataset("someName") 
+    with pytest.raises(RuntimeError):
+        newDataset._resolveWildcardBranch("NoStarPassed")
+    
+    with pytest.raises(NotImplementedError):
+        newDataset._resolveWildcardBranch("e*f")
+        
+    with pytest.raises(NotImplementedError):
+        newDataset._resolveWildcardBranch("e*f*")
+    
+@pytest.mark.parametrize("selector, inbranches, expectBranches", [("AAA*",["aAAA","AAA1","aAAAb"],["AAA1"]),
+                                                                  ("*AAA",["aAAA","AAA1","aAAAb"], ["aAAA"]),
+                                                                  ("*AAA*",["aAAA","AAA1","aAAAb","BBB"], ["aAAA","AAA1","aAAAb"])])
+def test_Dataset_resolveWildcardBranch(selector, inbranches, expectBranches):
+    newDataset = Dataset("someName") 
+    newDataset.filesAdded = True
+    newDataset.branches = inbranches
+    
+    assert expectBranches == newDataset._resolveWildcardBranch(selector)
+    
+def test_Dataset_setOutputBranches_wildcard_all(mocker, mockTree):
+    newDataset = Dataset("someName")    
+    inBrList = [br.decode(newDataset.encoding) for br in mockTree.keys()]
+    newDataset.filesAdded = True
+    newDataset.branches = inBrList
+    
+    expectedBranches = inBrList
+
+    mocker.spy(newDataset, "_resolveWildcardBranch")
+    
+    newDataset.setOutputBranches("*")
+
+    assert newDataset._resolveWildcardBranch.call_count == 0
+    
+    assert sorted(expectedBranches) == sorted(newDataset.outputBranches) and newDataset.outputBranchesSet
+
+@pytest.mark.parametrize("selector, expectBranches, count", [("*AAA*",["var_AAA_1","var_AAA_2"], 1),
+                                                             (["*AAA*","*BBB*"],["var_AAA_1","var_AAA_2","var_BBB_1","var_BBB_2"], 2),
+                                                             (["*AAA*","var_CCC_1"],["var_AAA_1","var_AAA_2","var_CCC_1"], 1)])
+def test_Dataset_setOutputBranches_wildcard_contains(selector, expectBranches, count, mocker, mockTree):
+    newDataset = Dataset("someName")    
+    inBrList = ["var_AAA_1","var_AAA_2","var_BBB_1","var_BBB_2","var_CCC_1"]
+    newDataset.filesAdded = True
+    newDataset.branches = inBrList
+    
+    expectedBranches = expectBranches
+
+    mocker.spy(newDataset, "_resolveWildcardBranch")
+
+    newDataset.setOutputBranches(selector)
+
+    assert newDataset._resolveWildcardBranch.call_count == count
+    
+    assert sorted(expectedBranches) == sorted(newDataset.outputBranches) and newDataset.outputBranchesSet
+
     
 def test_Dataset_setOutputBranches_exception(mockTree):
     newDataset = Dataset("someName")

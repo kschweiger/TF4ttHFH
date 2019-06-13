@@ -4,6 +4,7 @@ Classes for the preporcessing step
 K.Schweiger, 2019
 """
 import logging
+import re
 
 #import numpy as np
 import pandas as pd
@@ -126,9 +127,29 @@ class Dataset:
 
     def setOutputBranches(self, branchList):
         """ Sets the branches that should be present in the output file """
+        if isinstance(branchList, str):
+            branchList = [branchList]
         if not self.filesAdded:
             raise RuntimeError("Set at least one input file (and therefor the valid branches) before running this")
 
+        wildcards = list(filter(lambda x : "*" in x, branchList))
+        print(wildcards)
+        expandedWildcard = []
+        for selector in wildcards:
+            branchList.remove(selector)
+            if selector == "*":
+                expandedWildcard += self.branches
+            else:
+                expandedWildcard += self._resolveWildcardBranch(selector)
+
+        print(expandedWildcard)
+
+        if expandedWildcard:
+            branchList += expandedWildcard
+
+        branchList = list(set(branchList)) # remove duplicated
+            
+        print(branchList)
         for br in branchList:
             logging.debug("Adding output branch: %s", br)
             if br not in self.branches:
@@ -138,6 +159,31 @@ class Dataset:
 
         self.outputBranchesSet = True
 
+    def _resolveWildcardBranch(self, selector):
+        if not "*" in selector:
+            raise RuntimeError("No wildcard - * - in passed selector %s"%selector)
+
+        if selector.count("*") == 1:
+            if selector.startswith("*"):
+                thisRE = selector.replace("*","")+"$"
+            elif selector.endswith("*"):
+                thisRE = "^"+selector.replace("*","")
+            else:
+                raise NotImplementedError("Wildcards like a*b not supported")
+        else:
+            if selector.startswith("*") and selector.endswith("*"):
+                thisRE = selector.replace("*","")
+            else:
+                raise NotImplementedError("Wildcards like a*b* not supported")
+
+        retList = []
+        for br in self.branches:
+            if re.search(thisRE, br) is not None:
+                retList.append(br)
+                print(thisRE, br)
+
+        return retList
+        
     def getSelectedDataframe(self, tree):
         """ Function for getting the tree entries as dataframe and apply the selection """
         fullDF = tree.pandas.df()
