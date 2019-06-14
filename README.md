@@ -1,4 +1,4 @@
-![Coverage](https://img.shields.io/badge/pytest--cov-81%25-yellow.svg?longCache=true&style=flat-square)
+![Coverage](https://img.shields.io/badge/pytest--cov-85%25-yellow.svg?longCache=true&style=flat-square)
 ![Tests](https://img.shields.io/badge/Test%20passing-true-green.svg?longCache=true&style=flat-square)
 # TF4ttHFH
 
@@ -91,6 +91,10 @@ For the ttH(FH) UZH group a flattener can be found [here](https://gitlab.cern.ch
 
 ## The SLURM cluster (T3@PSI)
 In order to run on GPUs from the T3@PSI the SLURM cluser needs to be used. See [README](slurm/README.md) for instructions and tests.
+
+## Plotting
+Several plot scripts are provided to check input dataframes and output.      
+For validation of the input dataset `plotting/checkcheckInputData.py` can be used. Execute from **within** the plotting folder!
 
 # Mics
 
