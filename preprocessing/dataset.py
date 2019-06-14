@@ -94,8 +94,10 @@ class Dataset:
         outputDF.drop(columns=branchesToRemove, inplace=True) # Remove unnecessary branches
 
         #Output
-        if skipOutput:
+        if not skipOutput:
             self.makeOutput(outputDF)
+        else:
+            logging.warning("Skipping output")
 
         return outputDF
 
@@ -133,7 +135,7 @@ class Dataset:
             raise RuntimeError("Set at least one input file (and therefor the valid branches) before running this")
 
         wildcards = list(filter(lambda x : "*" in x, branchList))
-        print(wildcards)
+
         expandedWildcard = []
         for selector in wildcards:
             branchList.remove(selector)
@@ -142,14 +144,11 @@ class Dataset:
             else:
                 expandedWildcard += self._resolveWildcardBranch(selector)
 
-        print(expandedWildcard)
-
         if expandedWildcard:
             branchList += expandedWildcard
 
         branchList = list(set(branchList)) # remove duplicated
-            
-        print(branchList)
+
         for br in branchList:
             logging.debug("Adding output branch: %s", br)
             if br not in self.branches:
@@ -165,14 +164,14 @@ class Dataset:
 
         if selector.count("*") == 1:
             if selector.startswith("*"):
-                thisRE = selector.replace("*","")+"$"
+                thisRE = selector.replace("*", "")+"$"
             elif selector.endswith("*"):
-                thisRE = "^"+selector.replace("*","")
+                thisRE = "^"+selector.replace("*", "")
             else:
                 raise NotImplementedError("Wildcards like a*b not supported")
         else:
             if selector.startswith("*") and selector.endswith("*"):
-                thisRE = selector.replace("*","")
+                thisRE = selector.replace("*", "")
             else:
                 raise NotImplementedError("Wildcards like a*b* not supported")
 
@@ -183,7 +182,7 @@ class Dataset:
                 print(thisRE, br)
 
         return retList
-        
+
     def getSelectedDataframe(self, tree):
         """ Function for getting the tree entries as dataframe and apply the selection """
         fullDF = tree.pandas.df()

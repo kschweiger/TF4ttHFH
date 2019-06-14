@@ -51,13 +51,20 @@ def mockExpectationConfig(scope="module"):
     expectation = {}
     expectation["General"] = {"outputPrefix": "outPre",
                               "maxEvents": 999999,
-                              "outputVariables": "variable1,varibale2,variable3"}
+                              "outputVariables": "variable1,varibale2,variable3",
+                              "categories" : "cat1,cat2"}
     expectation["Sample"] = {"name" : "SampleName",
                              "path" : "data/testfiles.txt",
                              "selection" : "variable1 == 2 and variable2 > 6"}
+    expectation["cat1"] = {"selection" : "variable1 >= 3",
+                           "name" : "cat1Name"}
+    expectation["cat2"] = {"selection" : "variable1 >= 4",
+                           "name" : "cat2Name"}
     config['General'] = expectation["General"]
     config["Sample"] = expectation["Sample"]
-
+    config["cat1"] = expectation["cat1"]
+    config["cat2"] = expectation["cat2"]
+    
     return expectation, config
     
 
@@ -73,4 +80,8 @@ def test_config(mocker, mockExpectationConfig):
     assert isinstance(testConfig, Config)
     assert testConfig.outputVariables == list(set(mockExpectation["General"]["outputVariables"].split(",") + ["Varinable3"]))
     assert testConfig.files == ["fil1.root","file2.root"]
-    assert testConfig.sampleSelection == mockExpectation["Sample"]["selection"]    
+    assert testConfig.sampleSelection == mockExpectation["Sample"]["selection"]
+    assert testConfig.allCategories == mockExpectation["General"]["categories"].split(",")
+    for cat in mockExpectation["General"]["categories"].split(","):
+        assert testConfig.categories[cat].selection == mockExpectation[cat]["selection"]
+        assert testConfig.categories[cat].name == mockExpectation[cat]["name"]
