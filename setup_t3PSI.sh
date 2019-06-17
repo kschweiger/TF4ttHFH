@@ -10,13 +10,13 @@ source activate TFGPU
 # Requires input - Downgrade python <= 3.7.1 in order to run on T3 
 conda install python=3.6.8 # 3.7.1
 # Requires input
-conda install keras tensorflow-gpu
+conda install keras tensorflow-gpu scikit-learn
 pyenv virtualenv anaconda3-2018.12 TFCPU
 source activate TFCPU
 # Requires input - Downgrade python <= 3.7.1 in order to run on T3 
 conda install python=3.6.8 # 3.7.1
 # Requires input
 conda install keras tensorflow
-pip install matplotlib pandas awkward pytest pytest-mock pytest-cov tables ConfigParser pylint uproot uproot-methods
+pip install matplotlib pandas awkward pytest pytest-mock pytest-cov tables ConfigParser pylint uproot uproot-methods scikit-learn
 pyenv local TFCPU
 
