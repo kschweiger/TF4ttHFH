@@ -17,6 +17,6 @@ source activate TFCPU
 conda install python=3.6.8 # 3.7.1
 # Requires input
 conda install keras tensorflow
-pip install matplotlib pandas awkward pytest pytest-mock pytest-cov tables ConfigParser pylint uproot uproot-methods scikit-learn
+pip install matplotlib pandas awkward pytest pytest-mock pytest-cov tables ConfigParser pylint uproot uproot-methods scikit-learn pydot
 pyenv local TFCPU
 
