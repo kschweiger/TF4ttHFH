@@ -1,12 +1,21 @@
 """
 Top level training script for autoencoder
 """
+import sys
 import os
 import logging
+import shutil
 
 from collections import namedtuple
 
+import numpy as np
+
 from utils.ConfigReader import ConfigReaderBase
+from training.dataProcessing import Sample, Data
+from training.autoencoder import Autoencoder
+from training.trainUtils import r_square
+
+from utils.utils import initLogging, checkNcreateFolder
 
 class TrainingConfig(ConfigReaderBase):
     """
@@ -45,15 +54,22 @@ class TrainingConfig(ConfigReaderBase):
 
         netTuple = namedtuple("netTuple", ["defaultActivationEncoder", "defaultActivationDecoder",
                                            "useWeightDecay", "robustAutoencoder", "name",
-                                           "hiddenLayers", "inputDimention"])
+                                           "hiddenLayers", "inputDimention", "trainEpochs",
+                                           "loss", "validationSplit", "optimizer"])
         
-        self.net = netTuple(defaultActivationEncoder = self.readConfig.get("NeuralNet", "defaultActivationEncoder"),
-                            defaultActivationDecoder = self.readConfig.get("NeuralNet", "defaultActivationDecoder"),
-                            useWeightDecay = self.setOptionWithDefault("NeuralNet", "useWeightDecay", False, "bool"),
-                            robustAutoencoder = self.setOptionWithDefault("NeuralNet", "robustAutoencoder", False, "bool"),
-                            name = self.readConfig.get("NeuralNet", "name"),
-                            hiddenLayers = self.setOptionWithDefault("NeuralNet", "hiddenLayers", 0, "int"),
-                            inputDimention = self.readConfig.getint("NeuralNet", "inputDimention"))
+        self.net = netTuple(
+            defaultActivationEncoder = self.readConfig.get("NeuralNet", "defaultActivationEncoder"),
+            defaultActivationDecoder = self.readConfig.get("NeuralNet", "defaultActivationDecoder"),
+            useWeightDecay = self.setOptionWithDefault("NeuralNet", "useWeightDecay", False, "bool"),
+            robustAutoencoder = self.setOptionWithDefault("NeuralNet", "robustAutoencoder", False, "bool"),
+            name = self.readConfig.get("NeuralNet", "name"),
+            hiddenLayers = self.setOptionWithDefault("NeuralNet", "hiddenLayers", 0, "int"),
+            inputDimention = self.readConfig.getint("NeuralNet", "inputDimention"),
+            trainEpochs = self.readConfig.getint("NeuralNet", "epochs"),
+            loss = self.readConfig.get("NeuralNet", "loss"),
+            validationSplit = self.setOptionWithDefault("NeuralNet", "validationSplit", 0.25, "float"),
+            optimizer =  self.readConfig.get("NeuralNet", "optimizer")
+        )
 
         self.nHiddenLayers = self.net.hiddenLayers
         self.hiddenLayers = []
@@ -111,15 +127,19 @@ class AutoencoderTrainer:
     Trainer for a autoencoder
     """
     def __init__(self, testData, trainData, autoencoder):
+        if not isinstance(testData, np.ndarray):
+            raise TypeError("testData is expeced to be numpy.ndarray but us %s"%type(testData))
+        if not isinstance(trainData, np.ndarray):
+            raise TypeError("trainData is expeced to be numpy.ndarray but us %s"%type(trainData))
+        if not isinstance(autoencoder, Autoencoder):
+            raise TypeError("autoencoder is expected to be training.autoencoder.Autoencoder but is %s"%type(autoencoder))
+        
         self.autoencoder = autoencoder
 
         self.trainData = trainData
         self.testData = testData
 
-
-    def train(self, optimizer, loss, epochs):
-        pass
-
+        self.name = "Trainer"+autoencoder.name
 
 def buildActivations(config):
     """ Function building the activations are expected by the Autoencoder class """
@@ -141,4 +161,126 @@ def buildActivations(config):
             return (encoderActivations, decoderActivations)
 
 def initialize(config):
-    pass
+    """ Initialze samples and data  """
+    #Get samples
+    allSamples = []
+    for iSample, sample in enumerate(config.samples):
+        logging.info("Adding sample %s", sample)
+        allSamples.append(
+            Sample(
+                inFile = config.trainSamples[sample].input,
+                label = config.trainSamples[sample].label,
+                labelID = iSample,
+                xsec = config.trainSamples[sample].xsec,
+                nGen = config.trainSamples[sample].nGen,
+                dataType = config.trainSamples[sample].datatype
+            )
+        )
+        logging.info("Added Sample - %s",allSamples[iSample].getLabelTuple())
+
+    logging.info("Creating training data")
+    data = Data(
+        samples = allSamples,
+        trainVariables = config.trainingVariables,
+        testPercent = config.testPercent,
+        selection = config.selection,
+        shuffleData = config.ShuffleData,
+        shuffleSeed = config.SuffleSeed,
+        lumi = config.lumi
+    )
+    
+    return allSamples, data
+
+def trainAutoencoder(config):
+    logging.debug("Output folder")
+    checkNcreateFolder(config.output, onlyFolder=True)
+    
+    logging.info("Initializing samples and data")
+    allSample, data = initialize(config)
+    logging.debug("Getting activations")
+    thisEncoderActivation, thisDecoderActivation = buildActivations(config)
+    logging.debug("Encoder: %s", thisEncoderActivation)
+    logging.debug("Decoder: %s", thisDecoderActivation)
+    
+    logging.info("Initializing autoencoder")
+    thisAutoencoder = Autoencoder(
+        identifier = config.net.name,
+        inputDim = config.net.inputDimention,
+        encoderDim = config.encoder.dimention,
+        hiddenLayerDim = [config.hiddenLayers[i].dimention for i in range(config.nHiddenLayers)],
+        weightDecay = config.net.useWeightDecay,
+        robust = config.net.robustAutoencoder,
+        encoderActivation = thisEncoderActivation,
+        decoderActivation = thisDecoderActivation,
+        loss = config.net.loss,
+        metric = [r_square,'mae']
+    )
+
+    logging.info("Setting optimizer")
+    logging.debug("In config: %s",config.net.optimizer)
+    thisAutoencoder.setOptimizer(optimizerName=config.net.optimizer)
+
+    logging.info("Building model")
+    thisAutoencoder.buildModel()
+    logging.info("Compiling model")
+    thisAutoencoder.compileModel()
+    
+    trainData = data.getTrainData()
+    # print(data.trainVariables)
+    # print(data.trainDF[data.trainVariables])
+    # #print(data.untransfromedDF[data.trainVariables[1]])
+    
+    # print(trainData)
+    # input("Press ret")
+    
+    testData = data.getTestData()
+
+    trainWeights = data.trainTrainingWeights
+    testWeights = data.testTrainingWeights
+
+    logging.info("Fitting model")
+    thisAutoencoder.autoencoder.summary()
+    input("Press ret")
+    thisAutoencoder.trainModel(trainData, trainWeights,
+                               epochs = config.net.trainEpochs,
+                               valSplit = config.net.validationSplit)
+
+    logging.info("Evaluation....")
+    thisAutoencoder.evalModel(testData, testWeights,data.trainVariables, config.output, True)
+
+    logging.debug("Copying used config to outputfolder")
+    shutil.copy2(config.path, config.output+"/usedConfig.cfg")
+    
+def parseArgs(args):
+    import argparse
+    argumentparser = argparse.ArgumentParser(
+        description='Training script for autoencoders',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    argumentparser.add_argument(
+        "--log",
+        action="store",
+        type=int,
+        help="Define logging level: CRITICAL - 50, ERROR - 40, WARNING - 30, INFO - 20, DEBUG - 10, \
+        NOTSET - 0 \nSet to 0 to activate ROOT root messages",
+        default=20
+    )
+    argumentparser.add_argument(
+        "--config",
+        action="store",
+        type=str,
+        help="configuration file",
+        required=True
+    )
+    return argumentparser.parse_args(args)
+
+def main(args, config):
+    trainAutoencoder(config)
+
+
+if __name__ == "__main__":
+    args = parseArgs(sys.argv[1:])
+    initLogging(args.log)
+    config = TrainingConfig(args.config)
+    
+    main(args, config)

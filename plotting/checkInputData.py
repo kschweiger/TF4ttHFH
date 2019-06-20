@@ -9,9 +9,9 @@ import math
 from itertools import permutations
 sys.path.insert(0, os.path.abspath('../'))
 
-from utils.utils import initLogging
+from utils.utils import initLogging, checkNcreateFolder
 from plotting.style import StyleConfig
-
+from plotting.plotUtils import getColors, make1DPlot
 #plt.style.use('seaborn') #This can lead to a crash. To review all available styles use `print(plt.style.available)
 
 def transformDataframe(dataframe, variables):
@@ -40,9 +40,6 @@ def getWeights(dataframe, addWeights=[]):
             retWeight *= tmpWeight
         
     return retWeight
-
-def getColors():
-    return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 def generateVariableList(dataframe, whitelist, blacklist):
     """
@@ -80,43 +77,29 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
     fig, base = plt.subplots(dpi=150)
     if transform:
         binRange = (-4, 4)
+
+    listOfValues = []
+    listOfWeights = []
     for idf, fullDF in enumerate(dataframes):
         df = fullDF.loc[:, [variable]]
         if transform:
             df = transformDataframe(df, [variable])
         var = df.loc[:, [variable]].to_numpy()
+        listOfValues.append(var)
         weights = getWeights(fullDF)
-        print(weights.shape[0], fullDF.shape[0])
         weights = weights.to_numpy()
         weights = weights[:, 0]
-        print(weights)
         logging.debug("Mean weight : %s (%s)", weights.mean(), dfNames[idf] )
-        h = base.hist(var,
-                      bins=nBins,
-                      range=binRange,
-                      linewidth=2,
-                      density=normalized,
-                      weights=weights,
-                      color = getColors()[idf],
-                      histtype='step')
+        listOfWeights.append(weights)
 
-
-        
-    base.set_xlabel(varAxisName)
-    if normalized:
-        base.set_ylabel("Normalized Units")
-    else:
-        base.set_ylabel("Events")
-    base.set_xlim(binRange)
-    base.grid(False)
-    base.legend(dfNames)
-    logging.info("Saving file: {0}".format(output+".pdf"))
-    if savePDF:
-        plt.savefig(output+".pdf")
-
-    plt.close(fig)
-        
-    return True
+    return make1DPlot(listOfValues, listOfWeights,
+                      output=output,
+                      nBins=nBins,
+                      binRange=binRange,
+                      varAxisName=varAxisName,
+                      legendEntries=dfNames,
+                      normalized=normalized,
+                      savePDF=savePDF)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
     """ Function for plotting correlation between 2 variables of the passed dataframe """
@@ -327,14 +310,6 @@ def parseArgs(args):
 
 def getDataframes(filesList):
     return [pd.read_hdf(fileName) for fileName in filesList]
-
-def checkNcreateFolder(path):
-    outpath = path.split("/")
-    if len(outpath) > 1: #if no / in string output will be saved in current dir
-        outpath = "/".join(outpath[0:-1])
-        if not os.path.exists(outpath):
-            logging.warning("Creating direcotries %s", outpath)
-            os.makedirs(outpath)
 
 def process(args, styleConfig):
     

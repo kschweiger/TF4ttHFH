@@ -4,6 +4,8 @@ Collection of util functions (and classes)
 K. Schweiger, 2019
 """
 import logging
+import os
+import sys
 
 def initLogging(thisLevel):
     """
@@ -29,3 +31,17 @@ def initLogging(thisLevel):
     )
 
     return True
+
+def checkNcreateFolder(path, onlyFolder=False):
+    outpath = path.split("/")
+    if len(outpath) > 1: #if no / in string output will be saved in current dir
+        outpath = "/".join(outpath[0:-1])
+        if not os.path.exists(outpath):
+            logging.warning("Creating direcotries %s", outpath)
+            os.makedirs(outpath)
+
+    if onlyFolder:
+        if not os.path.exists(path):
+            logging.warning("Creating direcotries %s", path)
+            os.makedirs(path)
+        

@@ -38,7 +38,7 @@ class ConfigReaderBase:
             ret[name] = value
 
         return ret
-
+    
     @staticmethod
     def getList(value):
         value = value.replace(" ", "") 

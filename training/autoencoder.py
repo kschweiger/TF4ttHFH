@@ -1,10 +1,16 @@
+import inspect
+import logging
+import json
+
+import numpy as np
+
 from keras.layers import Input, Dense
 from keras.models import Model
-from keras import regularizers, losses, callbacks
-from keras.utils import plot_model
+from keras import regularizers, losses, callbacks, optimizers
+from keras.utils import plot_model, print_summary
 
-#from training.trainUtils import correntropyLoss
-
+from training.trainUtils import r_square
+import plotting.plotUtils
 class Autoencoder:
     """
     Class for setting up and building the autoencoder (AE) model. This supports shallow AEs (if hiddenLayerDim is apassed as empty list) and deep AEs by passing 
@@ -25,8 +31,11 @@ class Autoencoder:
       weightDecay (bool) : If True, weight decay will be used for regularization
       robust (bool) : If True, the corrEntropy will be used as loss function
       encoderActivation/decoderActivation (str or list) : Activation function for all layer or specific layers
+      loss (str) : Internal name for a loss function. Check supportedLosses attribute
+      metric (list) : List of metrics
     """
-    def __init__(self, identifier, inputDim, encoderDim, hiddenLayerDim = [], weightDecay=False, robust=False, encoderActivation="tanh", decoderActivation="tanh"):
+    def __init__(self, identifier, inputDim, encoderDim, hiddenLayerDim = [], weightDecay=False, robust=False,
+                 encoderActivation="tanh", decoderActivation="tanh", loss = "MSE", metric = None):
         ################### Exceptions ##########################
         if len(hiddenLayerDim) == 0 and not (isinstance(encoderActivation, str) and isinstance(decoderActivation, str)):
             raise TypeError("From hidderLayerDim this is supposed to be a shallow AE. Only str type activation are supported.")
@@ -40,7 +49,6 @@ class Autoencoder:
                 if len(encoderActivation) > len(hiddenLayerDim)+1:
                     raise RuntimeError("Passed more activations than layer. Expected 1 + %s (len(hiddenLayerDim)) but got %s"%(len(hiddenLayerDim),
                                                                                                                               len(encoderActivation)))
-            
         #########################################################
         self.inputDimention = inputDim
         self.reconstructionDimention = self.inputDimention
@@ -74,44 +82,130 @@ class Autoencoder:
                 self.hiddenLayerEncoderActivation.append(encoderActivation[i])
                 self.hiddenLayerDecoderActivation.append(decoderActivation[i])
 
-            
+        self.supportedLosses = ["MSE", "LOGCOSH", "MEA"]
+        self.lossFunction = self._getLossInstanceFromName(loss)
+        self.metrics = metric
+        self.optimizer = None
+        self.batchSize = 16
+        
+        self.modelBuilt = False
+        self.modelCompiled = False
+        self.modelTrained = False
+
+        self.trainedModel = None
+        
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
         self.name += "_robust" if self.robustAutoencoder else ""
 
-    def buildNetwork(self, plot=False):
+    def _getLossInstanceFromName(self, lossName):
+        """ 
+        Helper function for getting the keras loss instance from a name
+        Technically not necessary since compile takes strings but this enables custom
+        loss funcitons to be treated to the same porcedure.
+        """
+        if lossName not in self.supportedLosses:
+            raise NameError("Loss %s not supported. Supperted losses are %s"%(lossName, self.supportedLosses))
+
+        if lossName == "MSE":
+            return losses.mean_squared_error
+        if lossName == "LOGCOSH":
+            return losses.logcosh
+        if lossName == "MAE":
+            return losses.mean_absolute_error
+
+    def setOptimizer(self, **kwargs):
+        """ Function for setting the optimizer """
+        logging.debug("Optimizer to set: %s", kwargs["optimizerName"])
+        addkwargs = [k for k in kwargs.keys() if k != "optimizerName"]
+        logging.debug("Additional arguments : %s", addkwargs)
+        if kwargs["optimizerName"] == "rmsprop":
+            optimizerFunc = optimizers.RMSprop
+        elif kwargs["optimizerName"] == "adagrad":
+            optimizerFunc = optimizers.Adagrad
+        else:
+            raise NotImplementedError("Optiizer %s not implemented"%kwargs["optimizerName"])
+        defaultSig = self._parseSignature(inspect.signature(optimizerFunc))
+        useSig = {}
+        for arg in defaultSig:
+            if arg not in kwargs:
+                useSig[arg] = defaultSig[arg]
+            else:
+                useSig[arg] = kwargs[arg]
+        logging.debug("Default signature: %s",defaultSig)
+        logging.debug("Will use signature: %s",useSig)
+        for arg in addkwargs:
+            if arg not in useSig.keys():
+                raise RuntimeError("Passed argument %s no valid argument for optimizer %s"%(arg, kwargs["optimizerName"]))
+
+        if kwargs["optimizerName"] == "rmsprop":
+            self.optimizer = optimizers.RMSprop(lr=useSig["lr"], rho=useSig["rho"], epsilon=useSig["epsilon"], decay=useSig["decay"])
+        elif kwargs["optimizerName"] == "adagrad":
+            self.optimizer =optimizers.Adagrad(lr=useSig["lr"], epsilon=useSig["epsilon"], decay=useSig["decay"])
+        else:
+            raise RuntimeError("This should certainly not happen!")
+
+    @staticmethod
+    def _parseSignature(signature):
+        """ Parses the inspect.signature object and returns a dict with argument, default pairs """
+        defaultSignature = {}
+        for k,v in signature.parameters.items():
+            if v.default is not inspect.Parameter.empty:
+                defaultSignature[k] = v.default
+        return defaultSignature
+    
+    def buildModel(self, plot=False):
         """ Building the network """
         kernelRegulizer = regularizers.l2(self.weightDecayLambda) if self.useWeightDecay else regularizers.l1(0.)
 
         inputLayer = Input(shape=(self.inputDimention,))
 
         hiddenEncoderLayers = {}
+        layersSet = 0
         for iLayer in range(self.nHidden):
             hiddenEncoderLayers[iLayer] =  Dense(self.hiddenLayerDimention[iLayer],
                                                  activation=self.hiddenLayerEncoderActivation[iLayer],
                                                  kernel_regularizer=kernelRegulizer,
                                                  name = "hiddenEncoderLayer_"+str(iLayer))
-        
+            logging.info("Setting hidden encoder layer %s with", layersSet)
+            logging.info("  Dimention %s | Activation %s",
+                         self.hiddenLayerDimention[iLayer],
+                         self.hiddenLayerEncoderActivation[iLayer])
+            logging.info("  regualizer %s | name %s", kernelRegulizer,"hiddenEncoderLayer_"+str(iLayer))
+            layersSet += 1
         encoderLayer = Dense(self.encoderDimention,
                              activation=self.encoderActivation,
                              kernel_regularizer=kernelRegulizer,
                              name = "encoderLayer")
-
-       
+        logging.info("Setting encoder layer %s with", layersSet)
+        logging.info("  Dimention %s | Activation %s",
+                     self.encoderDimention,
+                     self.encoderActivation)
+        logging.info("  regualizer %s | name %s", kernelRegulizer,"encoderLayer")
+        layersSet += 1
         hiddenDecoderLayers = {}
         for iLayer in range(self.nHidden):
             hiddenDecoderLayers[iLayer] = Dense(self.hiddenLayerDimention[::-1][iLayer],
                                                  activation=self.hiddenLayerDecoderActivation[iLayer],
                                                  kernel_regularizer=kernelRegulizer,
                                                  name = "hiddenDecoderLayer_"+str(iLayer))
-
-            
+            logging.info("Setting hidden decoder layer %s with", layersSet)
+            logging.info("  Dimention %s | Activation %s",
+                         self.hiddenLayerDimention[::-1][iLayer],
+                         self.hiddenLayerDecoderActivation[iLayer])
+            logging.info("  regualizer %s | name %s", kernelRegulizer,"hiddenDecoderLayer_"+str(iLayer))
+            layersSet += 1
         decoderLayer = Dense(self.reconstructionDimention,
                              activation=self.decoderActivation,
                              kernel_regularizer=kernelRegulizer,
                              name = "decoderLayer")
-
-
+        logging.info("Setting decoder layer %s with", layersSet)
+        logging.info("  Dimention %s | Activation %s",
+                     self.reconstructionDimention,
+                     self.decoderActivation)
+        logging.info("  regualizer %s | name %s", kernelRegulizer,"decoderLayer")
+        layersSet += 1
+        
         #Build DeepNetwork
         if self.nHidden > 0:
             encoder = hiddenEncoderLayers[0](inputLayer)
@@ -150,5 +244,122 @@ class Autoencoder:
             plot_model(self.encoder, to_file="encoder_model.png", show_shapes=True)
             plot_model(self.decoder, to_file="decoder_model.png", show_shapes=True) 
             
-        
+
+        self.modelBuilt = True
         return True
+
+    def compileModel(self, writeyml=False, outdir="."):
+        if self.optimizer is None:
+            raise RuntimeError("Optimizer not set")
+        if not self.modelBuilt:
+            raise RuntimeError("Model not built")
+
+        logging.info("Will compile model with")
+        logging.info("  Optimiizer: %s", self.optimizer)
+        logging.info("  Loss function: %s", self.lossFunction)
+        logging.info("  Metrics: %s", self.metrics)
+        print(r_square)        
+        self.autoencoder.compile(
+            #optimizer=self.optimizer,
+            optimizer="adam",
+            #loss="mse",
+            loss=self.lossFunction,
+            metrics=self.metrics
+        )
+
+        self.modelCompiled = True
+        
+        if writeyml:
+            ymlModel = self.autoencoder.to_yaml()
+            with open("{0}/{1}_model_summary.yml".format(outdir, self.name), "w") as f:
+                f.write(ymlModel)
+
+        return True
+
+    def trainModel(self, trainingData, trainWeights, epochs=100, valSplit=0.25):
+        """ Train model with setting set by attributes and argements """
+        if not self.modelCompiled:
+            raise RuntimeError("Model not compiled")
+        if not isinstance(trainingData, np.ndarray):
+            raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingData))
+        if not isinstance(trainWeights, np.ndarray):
+            raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainWeights))
+        
+        logging.info("Starting training of the autoencoder %s", self.autoencoder)
+        self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
+                                                 batch_size = self.batchSize,
+                                                 epochs = epochs,
+                                                 shuffle = True,
+                                                 callbacks = None, #May implement loss history at some point
+                                                 validation_split = valSplit,
+                                                 sample_weight = trainWeights)
+        self.modelTrained = True
+
+        return True
+
+    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False):
+        """ Evaluate trained model """
+        if not self.modelTrained:
+            raise RuntimeError("Model not yet trainede")
+
+        self.modelEvaluation = self.autoencoder.evaluate(testData, testData,
+                                                         sample_weight = testWeights)
+
+        #print(self.modelEvaluation)
+        
+        predictEncoder = self.encoder.predict(testData)
+        predictDecoder = self.decoder.predict(predictEncoder)
+
+        # print("Input test data")
+        # print(testData)
+        # print("Prediction encoder layer")
+        # print(predictEncoder)
+        # print("Prediction decoder layer")
+        # print(predictDecoder)
+
+        # print("Mean activations: {}".format(predictEncoder.mean()))
+
+        if plotPrediction:
+            for iVar, var in enumerate(variables):
+                plotting.plotUtils.make1DPlot([testData[:,iVar], predictDecoder[:,iVar]],
+                                              [testWeights, testWeights],
+                                              outputFolder+"/"+self.name+"_EvalOutput_"+var,
+                                              nBins = 40,
+                                              binRange = (-4, 4),
+                                              varAxisName = var,
+                                              legendEntries = ["Test Input", "Decoder prediction"])
+
+    def saveModel(self, outputFolder):
+        """ Function for saving the model and additional information """
+        fileNameModel = "trainedModel.h5py"
+        logging.info("Saving model at %s/%s", outputFolder, fileNameModel)
+        self.autoencoder.save("%s/%s"%(outputFolder, fileNameModel))
+
+        fileNameWeights = "trainedModel_weights.h5"
+        logging.info("Saving model weights at %s/%s", outputFolder, fileNameWeights)
+        self.autoencoder.save_weights("%s/%s"%(outputFolder, fileNameWeights))
+
+        infos = self.getInfoDict()
+
+        fileNameJSON = "autoencoder_attributes.json"
+        logging.info("Saveing class attributes in json file %s", fileNameJSON)
+        with open("%s/%s"%(outputFolder, fileNameJSON), "w") as f:
+            json.dump(info, f, indent = 2, separators = (",", ": "))
+
+        fileNameReport = "autoencoder_report.txt"
+        logging.info("Saving summary to %s/%s", outputFoler, fileNameReport)
+        with open("%s/%s"%(outputFoler, fileNameReport),'w') as fh:
+            thisAutoencoder.autoencoder.summary(print_fn=lambda x: fh.write(x + '\n'))
+    
+            
+    def getInfoDict(self):
+        """ Save attributies in dict """
+
+        info = {}
+        for attribute in inspect.getmembers(self):
+            if attribute[0].startswith("__"):
+                continue
+            if isinstance(attribute[1], (int, float, list, str, dict)) or attribute[1] is None: 
+                info[attribute[0]] = attribute[1]
+
+        return info

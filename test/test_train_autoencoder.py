@@ -7,39 +7,67 @@ import sys
 import os
 from types import SimpleNamespace
 import configparser
+import argparse
 
- 
 import uproot as root
+import numpy as np
 import pandas as pd
 import copy
 
-from train_autoencoder import TrainingConfig, AutoencoderTrainer, buildActivations
+from train_autoencoder import TrainingConfig, AutoencoderTrainer, buildActivations, initialize, parseArgs, trainAutoencoder, main
+from training.dataProcessing import Sample, Data
 
 import pytest
+
+@pytest.fixture()
+def testData(means = (10, 12, 7), stddev = (2, 1.5, 1)):
+    size = 10000
+    data = {"evt" :  np.arange(size),
+            "run" :  np.arange(size),
+            "lumi" :  np.arange(size),
+            "puWeight" : np.array(size*[1.0]),
+            "genWeight" : np.array(size*[1.0]),
+            "btagWeight_shape" : np.array(size*[1.0]),
+            "weight_CRCorr" : np.array(size*[1.0]),
+            "triggerWeight" : np.array(size*[1.0])}
+
+    names = []
+    for i in range(len(means)):
+        names.append("variable"+str(i))
+
+    for iname, name in enumerate(names):
+        data[name] = np.random.normal(means[iname], stddev[iname], size)
+    df = pd.DataFrame(data)
+    df.set_index(["evt","run","lumi"], inplace=True)
+    return df
 
 @pytest.fixture(scope="module")
 def configExpectationRequired():
     expectation = {}
     expectation["General"] = {"output": "/path/to/output",
-                              "trainingVariables": "variable1,varibale2,variable3",
+                              "trainingVariables": "variable0,variable1,variable2",
                               "samples" : "Sample1",
                               "testPercentage" : 0.2}
     expectation["Sample1"] = {"input" : "/path/to/input.h5",
                               "label" : "Sample1Label",
                               "datatype" : "data"}
     expectation["NeuralNet"] = {"defaultActivationEncoder" : "tanh",
-                                 "defaultActivationDecoder" : "tanh",
-                                 "name" : "AutoEncoder",
-                                 "inputDimention" : 30}
+                                "defaultActivationDecoder" : "tanh",
+                                "name" : "AutoEncoder",
+                                "optimizer" : "rmsprop",
+                                "inputDimention" : 30,
+                                "epochs" : 10,
+                                "loss" : "RMS"}
     expectation["Encoder"] = {"dimention" : 5} 
     return expectation
 
 @pytest.fixture(scope="module")
 def mockExpectationConfig():
     config = configparser.ConfigParser()
+    config.optionxform = str
     expectation = {}
     expectation["General"] = {"output": "/path/to/output",
-                              "trainingVariables": "variable1,varibale2,variable3",
+                              "trainingVariables": "variable0,variable1,variable2",
                               "samples" : "Sample1,Sample2",
                               "lumi" : 1.0,
                               "testPercentage" : 0.2,
@@ -57,12 +85,16 @@ def mockExpectationConfig():
                               "nGen" : -1,
                               "datatype" : "data"}
     expectation["NeuralNet"] = {"defaultActivationEncoder" : "tanh",
-                                 "defaultActivationDecoder" : "tanh",
-                                 "useWeightDecay" : False,
-                                 "robustAutoencoder" : False,
-                                 "name" : "AutoEncoder",
-                                 "hiddenLayers" : 1,
-                                 "inputDimention" : 30}
+                                "defaultActivationDecoder" : "tanh",
+                                "useWeightDecay" : False,
+                                "robustAutoencoder" : False,
+                                "name" : "AutoEncoder",
+                                "hiddenLayers" : 1,
+                                "optimizer" : "rmsprop",
+                                "inputDimention" : 30,
+                                "epochs" : 10,
+                                "validationSplit" : 0.3,
+                                "loss" : "RMS"}
     expectation["Decoder"] = {"activation" : "linear"}
     expectation["Encoder"] = {"dimention" : 5,
                               "activation" : "tanh"} 
@@ -85,6 +117,7 @@ def mockExpectationConfig():
 
 def test_config_required(mocker, configExpectationRequired):
     mockConfig = configparser.ConfigParser()
+    mockConfig.optionxform = str
     for key in configExpectationRequired:
         mockConfig[key] = configExpectationRequired[key]
         
@@ -110,6 +143,11 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.name == configExpectationRequired["NeuralNet"]["name"]
     assert testConfig.net.hiddenLayers == 0
     assert testConfig.net.inputDimention == int(configExpectationRequired["NeuralNet"]["inputDimention"])
+    assert testConfig.net.trainEpochs == int(configExpectationRequired["NeuralNet"]["epochs"])
+    assert testConfig.net.loss == configExpectationRequired["NeuralNet"]["loss"]
+    assert testConfig.net.validationSplit == 0.25
+    assert testConfig.net.optimizer == configExpectationRequired["NeuralNet"]["optimizer"]
+
     
     for sample in expectedSampels:
         testConfig.trainSamples[sample].input == configExpectationRequired[sample]["input"]
@@ -126,6 +164,10 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.decoder.activation == configExpectationRequired["NeuralNet"]["defaultActivationEncoder"]
     assert testConfig.decoder.dimention == configExpectationRequired["NeuralNet"]["inputDimention"]
 
+    if True:
+        with open("data/autoencoder_example_minimal.cfg","w") as f:
+            testConfig.readConfig.write(f)
+    
 def test_config_allplusHidden(mocker, mockExpectationConfig):
     configExpectation, mockConfig = mockExpectationConfig        
     mocker.patch.object(TrainingConfig, "readConfig", return_value = mockConfig)
@@ -150,6 +192,10 @@ def test_config_allplusHidden(mocker, mockExpectationConfig):
     assert testConfig.net.name == configExpectation["NeuralNet"]["name"]
     assert testConfig.net.hiddenLayers == int(configExpectation["NeuralNet"]["hiddenLayers"])
     assert testConfig.net.inputDimention == int(configExpectation["NeuralNet"]["inputDimention"])
+    assert testConfig.net.trainEpochs == int(configExpectation["NeuralNet"]["epochs"])
+    assert testConfig.net.loss == configExpectation["NeuralNet"]["loss"]
+    assert testConfig.net.validationSplit == configExpectation["NeuralNet"]["validationSplit"]
+    assert testConfig.net.optimizer == configExpectation["NeuralNet"]["optimizer"]
     
     for sample in expectedSampels:
         testConfig.trainSamples[sample].input == configExpectation[sample]["input"]
@@ -170,6 +216,9 @@ def test_config_allplusHidden(mocker, mockExpectationConfig):
         assert testConfig.hiddenLayers[i].activationDecoderSide == configExpectation["HiddenLayer_"+str(i)]["activationDecoderSide"]
         assert testConfig.hiddenLayers[i].activationEncoderSide == configExpectation["HiddenLayer_"+str(i)]["activationEncoderSide"]
     
+    if True:
+        with open("data/autoencoder_example.cfg","w") as f:
+            testConfig.readConfig.write(f)
 
 
 def test_buildActivation_nohiddenLayers():
@@ -218,3 +267,21 @@ def test_buildActivation_hiddenLayers_different():
     setattr(relevandConfig, "hiddenLayers", [hiddenLayer])
 
     assert buildActivations(relevandConfig) == (["tanh","sigmoid"], ["tanh", "linear"])
+
+
+def test_initialize_samplesAndData(mocker, mockExpectationConfig, testData):
+    configExpectation, mockConfig = mockExpectationConfig
+    mocker.patch.object(TrainingConfig, "readConfig", return_value = mockConfig)
+    testConfig = TrainingConfig(path = "/path/to/config.cfg")
+    testConfig.samples = ["Sample1"]
+    mocker.patch("pandas.read_hdf", return_value=testData)
+    print(testData)
+    initSamples, initData = initialize(testConfig)
+
+    for sample in initSamples:
+        assert isinstance(sample, Sample)
+    assert isinstance(initData, Data)
+    
+def test_parseArgs():
+    args = parseArgs(["--config","path/to/config"])
+    assert isinstance(args, argparse.Namespace)

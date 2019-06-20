@@ -116,7 +116,7 @@ def test_data_init(mocker, testData, testDataSmall):
                 Sample("/path/to/some/file.h5", label="Sample1", labelID=1)]
 
     testPercentage = 0.2
-    data = Data(samples, ["Var0", "Var1", "Var2"], testPercentage)
+    data = Data(samples, ["Var0", "Var1", "Var2"], testPercentage, transform=False)
 
     #Check event count and splitting
     assert data.fullDF.shape[0] == testData.shape[0]+testDataSmall.shape[0]
@@ -160,7 +160,7 @@ def test_data_init_shuffle(mocker, testData, testDataSmall):
                 Sample("/path/to/some/file.h5", label="Sample1", labelID=1)]
 
     testPercentage = 0.2
-    data = Data(samples, ["Var0", "Var1", "Var2"], testPercentage, shuffleData=True)
+    data = Data(samples, ["Var0", "Var1", "Var2"], testPercentage, shuffleData=True, transform=False)
 
     unshuffeledDF = pd.concat([testData, testDataSmall])
 
@@ -174,7 +174,7 @@ def test_data_getData(mocker, testData):
 
     testPercentage = 0.2
     trainVars = ["Var0", "Var1", "Var2"]
-    data = Data(samples, trainVars, testPercentage)
+    data = Data(samples, trainVars, testPercentage, transform=False)
 
     retTrainDFMatrix = data._getData(getTrain=True)
     retTrainDF = data._getData(getTrain=True, asMatrix=False)
@@ -191,7 +191,7 @@ def test_data_getTrainTestData(mocker, testData):
 
     testPercentage = 0.2
     trainVars = ["Var0", "Var1", "Var2"]
-    data = Data(samples, trainVars, testPercentage)
+    data = Data(samples, trainVars, testPercentage, transform=False)
 
     trainDataframe = data.getTrainData(asMatrix=False)
     testDataframe = data.getTestData(asMatrix=False)
@@ -206,7 +206,7 @@ def test_data_properties(mocker, testData):
 
     testPercentage = 0.2
     trainVars = ["Var0", "Var1", "Var2"]
-    data = Data(samples, trainVars, testPercentage)
+    data = Data(samples, trainVars, testPercentage, transform=False)
 
     #Training set
     assert (data.trainTrainingWeights == data.trainDF["trainWeight"].values).all()
@@ -218,3 +218,21 @@ def test_data_properties(mocker, testData):
     assert (data.testLumiWeights == data.testDF["lumiWeight"].values).all()
     assert (data.testLables == data.testDF["labelID"].values).all()
 
+
+def test_data_transfromation_gauss(mocker, testData):
+    mocker.patch("pandas.read_hdf", side_effect=[testData, testDataSmall])
+
+    samples = [ Sample("/path/to/some/file.h5", label="Sample0", labelID=0)]
+
+    testPercentage = 0.2
+    trainVars = ["Var0", "Var1"]
+    unChangedVar = ["Var2"]
+    data = Data(samples, trainVars, testPercentage, transform=True)
+
+    for var in trainVars:
+        assert (data.fullDF[var] != testData[var]).all()
+        assert np.isclose([data.fullDF[var].mean()], [0])
+        assert np.isclose([data.fullDF[var].std()], [1])
+
+    for var in unChangedVar:
+        assert (data.fullDF[var] == testData[var]).all()

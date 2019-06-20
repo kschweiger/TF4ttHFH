@@ -82,7 +82,7 @@ class Data:
       ValueError : If testPercent is > 1
       RuntimeError : If an invalid trainig variable is passed
     """
-    def __init__(self, samples, trainVariables, testPercent, selection=None, shuffleData=False, shuffleSeed=None, lumi=41.5):
+    def __init__(self, samples, trainVariables, testPercent, transform=True, selection=None, shuffleData=False, shuffleSeed=None, lumi=41.5):
         if testPercent > 1.0:
             raise ValueError("testPercent is required to be less than 1. Passed value = %s"%testPercent)
         trainDataframes = []
@@ -100,6 +100,9 @@ class Data:
 
         del trainDataframes
 
+        self.trainVariables = trainVariables
+        self.outputClasses = classes
+        
         #Check if all passed trainVariables are valid
         for var in trainVariables:
             if var not in list(df.columns):
@@ -114,17 +117,40 @@ class Data:
             df = shuffle(df, random_state=self.shuffleSeed)
 
         self.fullDF = df.copy()
+        self.untransfromedDF = df.copy()
 
-        self.nTest = int(df.shape[0] * testPercent)
-        self.testDF = df.head(self.nTest)
-        self.nTrain = int(df.shape[0] - self.nTest)
-        self.trainDF = df.tail(df.shape[0] - self.nTest)
+        self.transfromationMethod = "Gauss"
+        
+        if transform:
+            self.transformData()
+        
+        self.nTest = int(self.fullDF.shape[0] * testPercent)
+        self.testDF = self.fullDF.head(self.nTest)
+        self.nTrain = int(self.fullDF.shape[0] - self.nTest)
+        self.trainDF = self.fullDF.tail(df.shape[0] - self.nTest)
         logging.info("nTest = %s | nTrain = %s", self.nTest, self.nTrain)
 
-        self.trainVariables = trainVariables
         self.allVariables = list(self.fullDF.columns)
-        self.outputClasses = classes
 
+    def transformData(self):
+        method = self.transfromationMethod
+        self.conversions = {}
+        if method == "Gauss":
+            logging.debug("Using gauss method to transfrom dataframe")
+            self.conversions["mu"] = {}
+            self.conversions["std"] = {}
+            for variable in self.trainVariables:
+                self.conversions["mu"][variable] = self.untransfromedDF[variable].mean()
+                self.conversions["std"][variable] = self.untransfromedDF[variable].std()
+                
+            self.fullDF[self.trainVariables] = ((self.untransfromedDF[self.trainVariables] - self.untransfromedDF[self.trainVariables].mean())/
+                                                self.untransfromedDF[self.trainVariables].std())
+        elif method == "Norm":
+            raise NotImplementedError("Transforming variables to [0,1] not yet implemented")
+        else:
+            raise NotImplementedError("Method %s is not supported")
+        
+        
     def _getData(self, getTrain=True, asMatrix=True):
         """
         Helper function for getting training or testing data
@@ -134,7 +160,7 @@ class Data:
             return requestedDF[self.trainVariables].values
         else:
             return requestedDF[self.trainVariables]
-
+        
     def getTrainData(self, asMatrix=True):
         """ Public wrapper for _getData for training dataset """
         return self._getData(getTrain=True, asMatrix=asMatrix)
@@ -159,6 +185,7 @@ class Data:
     def testLumiWeights(self):
         return self.testDF["lumiWeight"].values
 
+    #Maybe also needed as dataframes? TBD
     @property
     def trainLables(self):
         return self.trainDF["labelID"].values
