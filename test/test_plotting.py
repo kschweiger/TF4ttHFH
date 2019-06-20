@@ -80,7 +80,9 @@ def test_generateVariableList_expections(testDataOne):
     with pytest.raises(KeyError):
         plotting.checkInputData.generateVariableList(testDataOne, ["Var0", "someRandomName"], [])
 
-def test_plotDataframeVars(testDataOne, testDataTwo):
+def test_plotDataframeVars(mocker, testDataOne, testDataTwo):
+    mocker.patch("plotting.checkInputData.getWeights", side_effect=[pd.DataFrame(np.array((testDataOne.shape[0])*[1.0])),
+                                                                    pd.DataFrame(np.array((testDataTwo.shape[0])*[1.0]))])
     assert plotting.checkInputData.plotDataframeVars(
         [testDataOne, testDataTwo],
         "output1d",
@@ -92,7 +94,8 @@ def test_plotDataframeVars(testDataOne, testDataTwo):
         savePDF = doPlots
     )
 
-def test_plotCorrelation(testDataOne):
+def test_plotCorrelation(mocker, testDataOne):
+    mocker.patch("plotting.checkInputData.getWeights", return_value=pd.DataFrame(np.array((testDataOne.shape[0])*[1.0])))
     assert plotting.checkInputData.plotCorrelation(
         testDataOne,
         "output2d",
@@ -181,3 +184,40 @@ def test_checkInputData_main(mocker, mockExpectationConfig, testDataOne, testDat
 
     assert plotting.checkInputData.getCorrealtions.call_count == 2
     assert plotting.checkInputData.getDistributions.call_count == 1
+
+def test_checkInputData_getWeights():
+    size = 10
+    data = {"evt" :  np.arange(size),
+            "run" :  np.arange(size),
+            "lumi" :  np.arange(size),
+            "puWeight" : np.array(size*[1.0]),
+            "genWeight" : np.array(size*[2.0]),
+            "btagWeight_shape" : np.array(size*[3.0]),
+            "weight_CRCorr" : np.array(size*[4.0]),
+            "triggerWeight" : np.array(size*[5.0])}
+    expected = 1.0 * 2.0 * 3.0 * 4.0 * 5.0
+    df = pd.DataFrame(data)
+    df.set_index(["evt","run","lumi"], inplace=True)
+    weights = plotting.checkInputData.getWeights(df)
+
+    for elem in weights.values:
+        assert elem == expected
+
+def test_checkInputData_transformDataframe(testDataOne):
+    transformVars =  ["Var0", "Var1"]
+    transformedDataOne = plotting.checkInputData.transformDataframe(testDataOne, transformVars)
+
+    for var in list(testDataOne.columns):
+        print("Checking var", var)
+        if var in transformVars:
+            assert (transformedDataOne[var] != testDataOne[var]).all()
+            assert np.isclose([transformedDataOne[var].mean()], [0])
+            assert np.isclose([transformedDataOne[var].std()], [1])
+        else:
+            assert (transformedDataOne[var] == testDataOne[var]).all()
+            assert np.isclose([transformedDataOne[var].mean()],
+                              [testDataOne[var].mean()])
+            assert np.isclose([transformedDataOne[var].std()],
+                              [testDataOne[var].std()])
+    
+    

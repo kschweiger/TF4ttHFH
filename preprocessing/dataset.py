@@ -106,7 +106,7 @@ class Dataset:
         output = self.outputdir+"/"+self.outputName+".h5"
         logging.info("Creating output file: %s", output)
         with pd.HDFStore(output, "a") as store:
-            store.append("data", outputDF, index=False)
+            store.put("data", outputDF, index=False)
 
     def getBranchesFromFile(self, infile):
         """ Opens tree in a file with uproot and returns the branches (as strings!) """

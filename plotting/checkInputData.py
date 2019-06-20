@@ -4,6 +4,7 @@ import logging
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import math
 
 from itertools import permutations
 sys.path.insert(0, os.path.abspath('../'))
@@ -12,6 +13,33 @@ from utils.utils import initLogging
 from plotting.style import StyleConfig
 
 #plt.style.use('seaborn') #This can lead to a crash. To review all available styles use `print(plt.style.available)
+
+def transformDataframe(dataframe, variables):
+    """ Transforms all passed variables in the dataframe to to distibutions with mean=0 and std=1"""
+    transformedDataframe = dataframe.copy()
+    for variable in list(variables):
+        transformedDataframe[variable] = ((dataframe[variable] - dataframe[variable].mean())/(dataframe[variable].std()))
+
+    return transformedDataframe
+
+def getWeights(dataframe, addWeights=[]):
+    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
+    retWeight = None
+    for weight in standardWeights+addWeights:
+        if retWeight is None:
+            retWeight = dataframe.loc[:, [weight]]
+            retWeight.rename(columns={weight : "EventWeight"}, inplace=True)
+            logging.debug("Mean Weight %s for %s",retWeight["EventWeight"].mean(), weight)
+        else:
+            tmpWeight = dataframe.loc[:, [weight]]
+            if tmpWeight[weight].mean() <= 0: #Temp fix for bug in preprocessing. Only effect data
+                logging.warning("Skipping weight %s becuase mean is %s", weight, tmpWeight[weight].mean())
+                continue
+            tmpWeight.rename(columns={weight : "EventWeight"}, inplace=True)
+            logging.debug("Mean Weight %s for %s",tmpWeight["EventWeight"].mean(), weight)
+            retWeight *= tmpWeight
+        
+    return retWeight
 
 def getColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -45,24 +73,35 @@ def generateVariableList(dataframe, whitelist, blacklist):
     logging.debug("Resulting whitelist = %s", whitelist)
     return whitelist
 
-def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, savePDF=True):
+def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True):
     """ Function for plotting the passed variable from all passed dataframes """
-    # TODO: Implement normalization
     # TODO: Implement weights
     assert len(dfNames) == len(dataframes)
     fig, base = plt.subplots(dpi=150)
+    if transform:
+        binRange = (-4, 4)
     for idf, fullDF in enumerate(dataframes):
         df = fullDF.loc[:, [variable]]
-        df.plot.hist(
-            ax = base,
-            color = getColors()[idf],
-            histtype="step",
-            bins = nBins,
-            range = binRange,
-            linewidth = 2
-        )
+        if transform:
+            df = transformDataframe(df, [variable])
+        var = df.loc[:, [variable]].to_numpy()
+        weights = getWeights(fullDF)
+        print(weights.shape[0], fullDF.shape[0])
+        weights = weights.to_numpy()
+        weights = weights[:, 0]
+        print(weights)
+        logging.debug("Mean weight : %s (%s)", weights.mean(), dfNames[idf] )
+        h = base.hist(var,
+                      bins=nBins,
+                      range=binRange,
+                      linewidth=2,
+                      density=normalized,
+                      weights=weights,
+                      color = getColors()[idf],
+                      histtype='step')
 
-    
+
+        
     base.set_xlabel(varAxisName)
     if normalized:
         base.set_ylabel("Normalized Units")
@@ -79,18 +118,36 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
         
     return True
     
-def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, savePDF=True):
+def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
     """ Function for plotting correlation between 2 variables of the passed dataframe """
     # TODO: Implement weights
     fig, base = plt.subplots(dpi=150)
     fig.subplots_adjust(bottom = 0.16, right = 0.88, left = 0.11, top = 0.92)
-    # For some reason pandas only kan do hexagonal binned 2d plots  ¯\_(ツ)_/¯
+    # For some reason pandas only can do hexagonal binned 2d plots  ¯\_(ツ)_/¯
     # So we convert the columns of interest to numpy arrays and used to standard
     # pyplot implementation -.-
+    if transform:
+        dataframe = transformDataframe(dataframe, [variable1, variable2])
+  
     var1Data = dataframe[variable1].to_numpy()
     var2Data = dataframe[variable2].to_numpy()
 
-    h = base.hist2d(var1Data, var2Data, bins=[nBins1, nBins2], range=[binRange1, binRange2])
+    weights = getWeights(dataframe)
+    weights = weights.to_numpy()
+    weights = weights[:, 0]
+    print(weights)
+    
+    if transform:
+        binRange1 = (-4, 4)
+        binRange2 = (-4, 4)
+        
+    h = base.hist2d(
+        var1Data, var2Data,
+        bins=[nBins1, nBins2],
+        range=[binRange1, binRange2],
+        weights=weights
+    )
+    
     plt.colorbar(h[3], ax=base)
 
     base.set_xlabel(var1AxisTitle)
@@ -99,7 +156,7 @@ def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTit
     # Get Correaltion
     var1Series = dataframe.loc[:, variable1]
     var2Series = dataframe.loc[:, variable2]
-
+    
     corr = var1Series.corr(var2Series)
     base.text(0, 1.02, "Correlation: {0:0.4f}".format(corr), transform=base.transAxes)
 
@@ -114,7 +171,7 @@ def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTit
 
     
 
-def getCorrealtions(styleConfig, dataframe, outputPath, processVars):
+def getCorrealtions(styleConfig, dataframe, outputPath, processVars, transform=False):
     """ 
     Function for plotting 2D distribution for all passed variables in passed dataframe 
     
@@ -128,6 +185,7 @@ def getCorrealtions(styleConfig, dataframe, outputPath, processVars):
     logging.info("Got %s variables. Will make %s plots", len(processVars), len(allCombinations))
     for combination in list(allCombinations):
         logging.debug("Processing combination %s", combination)
+
         thisOutput = outputPath+("_".join(combination))
         var1 = combination[0]
         var2 = combination[1]
@@ -139,15 +197,17 @@ def getCorrealtions(styleConfig, dataframe, outputPath, processVars):
             styleConfig.style[var1].nBins,
             styleConfig.style[var1].binRange,
             styleConfig.style[var1].axisName,
+            var2,
             styleConfig.style[var2].nBins,
             styleConfig.style[var2].binRange,
             styleConfig.style[var2].axisName,
+            transform = transform,
             savePDF = True
         )
     logging.info("Exiting function")
     return True
 
-def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False):
+def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False):
     """ 
     Function for plotting 1D distribution comparsions for all passed Dataframes 
     
@@ -161,6 +221,9 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
     if inputNames is None:
         inputNames = ["DF"+str(i) for i in range(len(inputDataframes))]
     assert len(inputNames) == len(inputDataframes)
+    for i in range(len(inputDataframes)):
+        inputNames[i] = "{0} ({1})".format(inputNames[i], inputDataframes[i].shape[0])
+    print(inputNames)
     for variable in processVars:
         logging.info("Processing variable %s", variable)
         plotDataframeVars(
@@ -172,6 +235,7 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
             binRange = styleConfig.style[variable].binRange,
             varAxisName = styleConfig.style[variable].axisName,
             normalized = drawNormalized,
+            transform = transform,
             savePDF = True
         )
         
@@ -253,13 +317,28 @@ def parseArgs(args):
         action="store_true",
         help="Do distributions for all combination of passed variables",
     )
+    argumentparser.add_argument(
+        "--transform",
+        action="store_true",
+        help="Transforms the variable to distributions with mean=0 and sigma=1",
+    )
     
     return argumentparser.parse_args(args)
 
 def getDataframes(filesList):
     return [pd.read_hdf(fileName) for fileName in filesList]
-    
+
+def checkNcreateFolder(path):
+    outpath = path.split("/")
+    if len(outpath) > 1: #if no / in string output will be saved in current dir
+        outpath = "/".join(outpath[0:-1])
+        if not os.path.exists(outpath):
+            logging.warning("Creating direcotries %s", outpath)
+            os.makedirs(outpath)
+
 def process(args, styleConfig):
+    
+    
     inputDFs = getDataframes(args.input)
     if args.inputNames is not None:
         assert len(args.inputNames) == len(inputDFs)
@@ -269,13 +348,23 @@ def process(args, styleConfig):
         logging.info("Will do correlation plots")
         for iDF, inputDF in enumerate(inputDFs):
             logging.info("Processing file %s",inputDFs)
-            thisoutput = args.output+"_corr2D_"+(str(iDF) if args.inputNames is None else args.inputNames[iDF])
-            getCorrealtions(styleConfig, inputDF, thisoutput, vars2Process)
+            outpath = args.output.split("/")
+            if len(outpath) > 1: #In this case we want to insert the folder for the dataframe
+                folders = outpath[0:-1]
+                folders.append("DF-"+str(iDF) if args.inputNames is None else args.inputNames[iDF])
+                thisOutput = "/".join(folders+[outpath[-1]])
+                thisOutput += "_corr2D_"
+                checkNcreateFolder(thisOutput)
+            else:
+                thisOutput = args.output+"_corr2D_"+(str(iDF) if args.inputNames is None else args.inputNames[iDF])
+            
+            getCorrealtions(styleConfig, inputDF, thisOutput, vars2Process, args.transform)
 
     if args.plotDist:
         logging.info("Will plot distributions")
         thisOutput = args.output+"_dist_"
-        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized)
+        checkNcreateFolder(thisOutput)
+        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized, args.transform)
             
 if __name__ == "__main__":
     args = parseArgs(sys.argv[1:])
