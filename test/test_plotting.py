@@ -16,7 +16,7 @@ import copy
 
 import plotting.checkInputData
 from plotting.style import StyleConfig
-
+import plotting.plotUtils 
 import pytest
 
 doPlots = False #Set to True if you want to see the test plots
@@ -220,4 +220,18 @@ def test_checkInputData_transformDataframe(testDataOne):
             assert np.isclose([transformedDataOne[var].std()],
                               [testDataOne[var].std()])
     
+    
+def test_plotUtils_xyPlot():
+    data1 = [1,3,6,14,18,20]
+    yData1 = np.array(data1)
+    xData1 = np.array(range(len(data1)))
+
+    data2 = [2,5,7,11,17,22]
+    yData2 = np.array(data2)
+    xData2 = np.array(range(len(data2)))
+
+    passData = [(xData1, yData1), (xData2, yData2)]
+    
+    assert plotting.plotUtils.make1DPlot(passData, "1dTest", "xName", "yName", ["Data1","Data2"], savePDF=True)
+
     

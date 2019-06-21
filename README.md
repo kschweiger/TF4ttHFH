@@ -89,12 +89,32 @@ Flattening of ROOT::TTrees or adding of variables is not part of the proprocesse
 In an environment with root access it is not problem to compile a root version against the python version used for TF. Example instructions for this can be found [here](https://gitlab.cern.ch/koschwei/Documentation/blob/master/Notes/04_root.md#43-compiling-on-macos-with-pyenv)(CMS-internal link)      
 For the ttH(FH) UZH group a flattener can be found [here](https://gitlab.cern.ch/Zurich_ttH/FHDownstream/blob/FullRunII_dev/nTupleProcessing/classification/flatNprocess.py) (CMS-internal link)
 
-## The SLURM cluster (T3@PSI)
-In order to run on GPUs from the T3@PSI the SLURM cluser needs to be used. See [README](slurm/README.md) for instructions and tests.
+## Training
+For the training of the network script(s) are available in the root directory of the repo. For setting the paramters of the net, the input files, output path etc. configuration files are used that are passed as argument when calling the top-level training script.
+
+### Dataprocessing
+The proprocessed data is is loaded in the beginning of the training. Currently the default setting for all variables is to be transformed with a so-called "Gauss" method. After transformation all input variables have a mean = 0 and a std. deviation = 1. The mean and std used for the training are stored in the autoencoder class and saved to disc in after training. For ecaluation these values have to be used to transform the input variables.
+
+### Autoencoder
+In the config the follow parameters of the network can be set:
+- Regularization with weight decay - `useWeightDecay`
+- The optimizer used in the training - `optimizer` (currently supported are `rmsprop`, `adamadagrad`)
+- Loss function - `loss` (currently supported are `MSE`, `LOGCOSH`, `MEA`) 
+- General parameters like: `epochs`, `batchSize`, `validationSplit`
+- Default settings for activations can be set with `defaultActivationEncoder` and `defaultActivationDecoder`
+- This can be overwritten for the encoder, decoder and each pair of hidden layers
+- It is required to set an encoder dimention (the "bottleneck") 
+- If hidden layers are set in the network configuration a section `[HiddenLayer_X]` (where `x` is the hidden startign at 0) for each pair of layers is required in the config. There the dimention has to be set and activation functions can be set
+- For each sample set in the general part of the config a section with the same name is expected. It has to set `input`, `label` and `datatype` and can set `xsec` and `nGen`.
+
+Optimizers and loss functions can be "added" by modifiying the `supportedLosses` attribute and `_getLossInstanceFromName` and `setOptimizer` methods in `training/autoencoder/autoencoder.py`.
 
 ## Plotting
 Several plot scripts are provided to check input dataframes and output.      
 For validation of the input dataset `plotting/checkcheckInputData.py` can be used. Execute from **within** the plotting folder!
+
+## The SLURM cluster (T3@PSI)
+In order to run on GPUs from the T3@PSI the SLURM cluser needs to be used. See [README](slurm/README.md) for instructions and tests.
 
 # Mics
 

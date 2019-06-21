@@ -140,8 +140,8 @@ class Data:
             self.conversions["mu"] = {}
             self.conversions["std"] = {}
             for variable in self.trainVariables:
-                self.conversions["mu"][variable] = self.untransfromedDF[variable].mean()
-                self.conversions["std"][variable] = self.untransfromedDF[variable].std()
+                self.conversions["mu"][variable] = float(self.untransfromedDF[variable].mean())
+                self.conversions["std"][variable] = float(self.untransfromedDF[variable].std())
                 
             self.fullDF[self.trainVariables] = ((self.untransfromedDF[self.trainVariables] - self.untransfromedDF[self.trainVariables].mean())/
                                                 self.untransfromedDF[self.trainVariables].std())

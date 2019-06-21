@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath('../'))
 
 from utils.utils import initLogging, checkNcreateFolder
 from plotting.style import StyleConfig
-from plotting.plotUtils import getColors, make1DPlot
+from plotting.plotUtils import getColors, make1DHistoPlot
 #plt.style.use('seaborn') #This can lead to a crash. To review all available styles use `print(plt.style.available)
 
 def transformDataframe(dataframe, variables):
@@ -92,14 +92,14 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
         logging.debug("Mean weight : %s (%s)", weights.mean(), dfNames[idf] )
         listOfWeights.append(weights)
 
-    return make1DPlot(listOfValues, listOfWeights,
-                      output=output,
-                      nBins=nBins,
-                      binRange=binRange,
-                      varAxisName=varAxisName,
-                      legendEntries=dfNames,
-                      normalized=normalized,
-                      savePDF=savePDF)
+    return make1DHistoPlot(listOfValues, listOfWeights,
+                           output=output,
+                           nBins=nBins,
+                           binRange=binRange,
+                           varAxisName=varAxisName,
+                           legendEntries=dfNames,
+                           normalized=normalized,
+                           savePDF=savePDF)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
     """ Function for plotting correlation between 2 variables of the passed dataframe """

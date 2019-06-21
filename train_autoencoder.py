@@ -55,7 +55,7 @@ class TrainingConfig(ConfigReaderBase):
         netTuple = namedtuple("netTuple", ["defaultActivationEncoder", "defaultActivationDecoder",
                                            "useWeightDecay", "robustAutoencoder", "name",
                                            "hiddenLayers", "inputDimention", "trainEpochs",
-                                           "loss", "validationSplit", "optimizer"])
+                                           "loss", "validationSplit", "optimizer", "batchSize"])
         
         self.net = netTuple(
             defaultActivationEncoder = self.readConfig.get("NeuralNet", "defaultActivationEncoder"),
@@ -68,7 +68,8 @@ class TrainingConfig(ConfigReaderBase):
             trainEpochs = self.readConfig.getint("NeuralNet", "epochs"),
             loss = self.readConfig.get("NeuralNet", "loss"),
             validationSplit = self.setOptionWithDefault("NeuralNet", "validationSplit", 0.25, "float"),
-            optimizer =  self.readConfig.get("NeuralNet", "optimizer")
+            optimizer =  self.readConfig.get("NeuralNet", "optimizer"),
+            batchSize = self.setOptionWithDefault("NeuralNet", "batchSize", 128, "int")
         )
 
         self.nHiddenLayers = self.net.hiddenLayers
@@ -121,25 +122,6 @@ class TrainingConfig(ConfigReaderBase):
                 return self.readConfig.get(section, option)
         else:
             return default
-        
-class AutoencoderTrainer:
-    """
-    Trainer for a autoencoder
-    """
-    def __init__(self, testData, trainData, autoencoder):
-        if not isinstance(testData, np.ndarray):
-            raise TypeError("testData is expeced to be numpy.ndarray but us %s"%type(testData))
-        if not isinstance(trainData, np.ndarray):
-            raise TypeError("trainData is expeced to be numpy.ndarray but us %s"%type(trainData))
-        if not isinstance(autoencoder, Autoencoder):
-            raise TypeError("autoencoder is expected to be training.autoencoder.Autoencoder but is %s"%type(autoencoder))
-        
-        self.autoencoder = autoencoder
-
-        self.trainData = trainData
-        self.testData = testData
-
-        self.name = "Trainer"+autoencoder.name
 
 def buildActivations(config):
     """ Function building the activations are expected by the Autoencoder class """
@@ -213,7 +195,8 @@ def trainAutoencoder(config):
         encoderActivation = thisEncoderActivation,
         decoderActivation = thisDecoderActivation,
         loss = config.net.loss,
-        metric = [r_square,'mae']
+        metric = [r_square,'mae'],
+        batchSize = config.net.batchSize
     )
 
     logging.info("Setting optimizer")
@@ -246,10 +229,11 @@ def trainAutoencoder(config):
                                valSplit = config.net.validationSplit)
 
     logging.info("Evaluation....")
-    thisAutoencoder.evalModel(testData, testWeights,data.trainVariables, config.output, True)
-
+    thisAutoencoder.evalModel(testData, testWeights,data.trainVariables, config.output, True, True)
+    
     logging.debug("Copying used config to outputfolder")
     shutil.copy2(config.path, config.output+"/usedConfig.cfg")
+    thisAutoencoder.saveModel(config.output, data.conversions)
     
 def parseArgs(args):
     import argparse

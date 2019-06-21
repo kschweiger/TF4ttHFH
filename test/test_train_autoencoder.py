@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import copy
 
-from train_autoencoder import TrainingConfig, AutoencoderTrainer, buildActivations, initialize, parseArgs, trainAutoencoder, main
+from train_autoencoder import TrainingConfig, buildActivations, initialize, parseArgs, trainAutoencoder, main
 from training.dataProcessing import Sample, Data
 
 import pytest
@@ -94,7 +94,8 @@ def mockExpectationConfig():
                                 "inputDimention" : 30,
                                 "epochs" : 10,
                                 "validationSplit" : 0.3,
-                                "loss" : "RMS"}
+                                "loss" : "RMS",
+                                "batchSize" : 16}
     expectation["Decoder"] = {"activation" : "linear"}
     expectation["Encoder"] = {"dimention" : 5,
                               "activation" : "tanh"} 
@@ -147,7 +148,7 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.loss == configExpectationRequired["NeuralNet"]["loss"]
     assert testConfig.net.validationSplit == 0.25
     assert testConfig.net.optimizer == configExpectationRequired["NeuralNet"]["optimizer"]
-
+    assert testConfig.net.batchSize == 128
     
     for sample in expectedSampels:
         testConfig.trainSamples[sample].input == configExpectationRequired[sample]["input"]
@@ -155,7 +156,7 @@ def test_config_required(mocker, configExpectationRequired):
         testConfig.trainSamples[sample].xsec == 1.0
         testConfig.trainSamples[sample].nGen == 1.0
         testConfig.trainSamples[sample].datatype == configExpectationRequired[sample]["datatype"]
-
+        
     assert testConfig.nHiddenLayers == 0
     assert testConfig.hiddenLayers == []
 
@@ -196,6 +197,7 @@ def test_config_allplusHidden(mocker, mockExpectationConfig):
     assert testConfig.net.loss == configExpectation["NeuralNet"]["loss"]
     assert testConfig.net.validationSplit == configExpectation["NeuralNet"]["validationSplit"]
     assert testConfig.net.optimizer == configExpectation["NeuralNet"]["optimizer"]
+    assert testConfig.net.batchSize == int(configExpectation["NeuralNet"]["batchSize"])
     
     for sample in expectedSampels:
         testConfig.trainSamples[sample].input == configExpectation[sample]["input"]

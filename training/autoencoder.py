@@ -35,7 +35,7 @@ class Autoencoder:
       metric (list) : List of metrics
     """
     def __init__(self, identifier, inputDim, encoderDim, hiddenLayerDim = [], weightDecay=False, robust=False,
-                 encoderActivation="tanh", decoderActivation="tanh", loss = "MSE", metric = None):
+                 encoderActivation="tanh", decoderActivation="tanh", loss = "MSE", metric = None, batchSize = 128):
         ################### Exceptions ##########################
         if len(hiddenLayerDim) == 0 and not (isinstance(encoderActivation, str) and isinstance(decoderActivation, str)):
             raise TypeError("From hidderLayerDim this is supposed to be a shallow AE. Only str type activation are supported.")
@@ -86,7 +86,7 @@ class Autoencoder:
         self.lossFunction = self._getLossInstanceFromName(loss)
         self.metrics = metric
         self.optimizer = None
-        self.batchSize = 16
+        self.batchSize = batchSize
         
         self.modelBuilt = False
         self.modelCompiled = False
@@ -293,11 +293,12 @@ class Autoencoder:
                                                  callbacks = None, #May implement loss history at some point
                                                  validation_split = valSplit,
                                                  sample_weight = trainWeights)
-        self.modelTrained = True
 
+        self.modelTrained = True
+        
         return True
 
-    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False):
+    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False, plotMetics=False):
         """ Evaluate trained model """
         if not self.modelTrained:
             raise RuntimeError("Model not yet trainede")
@@ -319,17 +320,34 @@ class Autoencoder:
 
         # print("Mean activations: {}".format(predictEncoder.mean()))
 
+        if plotMetics:
+            logging.info("Saving epoch metrics")
+            metricList = [x for x in self.trainedModel.__dict__["params"]['metrics'] if not x.startswith("val_")]
+            for metric in metricList:
+                logging.debug("Plotting metric %s", metric)
+                metricTrain = np.array(self.trainedModel.__dict__["history"][metric])
+                metricVal = np.array(self.trainedModel.__dict__["history"]["val_"+metric])
+                xAxis = np.array(list(range(1, self.trainedModel.__dict__['params']["epochs"]+1)))
+                plotVals = [(xAxis, metricTrain), (xAxis, metricVal)]
+                
+                plotting.plotUtils.make1DPlot(plotVals,
+                                              output = outputFolder+"/"+self.name+"_metrics_"+metric,
+                                              xAxisName = "Epochs",
+                                              yAxisName = metric,
+                                              legendEntries = ["Training Sample", "Validation Sample"])
+
+        
         if plotPrediction:
             for iVar, var in enumerate(variables):
-                plotting.plotUtils.make1DPlot([testData[:,iVar], predictDecoder[:,iVar]],
-                                              [testWeights, testWeights],
-                                              outputFolder+"/"+self.name+"_EvalOutput_"+var,
-                                              nBins = 40,
-                                              binRange = (-4, 4),
-                                              varAxisName = var,
-                                              legendEntries = ["Test Input", "Decoder prediction"])
+                plotting.plotUtils.make1DHistoPlot([testData[:,iVar], predictDecoder[:,iVar]],
+                                                   [testWeights, testWeights],
+                                                   outputFolder+"/"+self.name+"_EvalOutput_"+var,
+                                                   nBins = 40,
+                                                   binRange = (-4, 4),
+                                                   varAxisName = var,
+                                                   legendEntries = ["Test Input", "Decoder prediction"])
 
-    def saveModel(self, outputFolder):
+    def saveModel(self, outputFolder, transfromations=None):
         """ Function for saving the model and additional information """
         fileNameModel = "trainedModel.h5py"
         logging.info("Saving model at %s/%s", outputFolder, fileNameModel)
@@ -340,17 +358,22 @@ class Autoencoder:
         self.autoencoder.save_weights("%s/%s"%(outputFolder, fileNameWeights))
 
         infos = self.getInfoDict()
-
+        print(infos)
         fileNameJSON = "autoencoder_attributes.json"
         logging.info("Saveing class attributes in json file %s", fileNameJSON)
         with open("%s/%s"%(outputFolder, fileNameJSON), "w") as f:
-            json.dump(info, f, indent = 2, separators = (",", ": "))
+            json.dump(infos, f, indent = 2, separators = (",", ": "))
 
         fileNameReport = "autoencoder_report.txt"
-        logging.info("Saving summary to %s/%s", outputFoler, fileNameReport)
-        with open("%s/%s"%(outputFoler, fileNameReport),'w') as fh:
-            thisAutoencoder.autoencoder.summary(print_fn=lambda x: fh.write(x + '\n'))
+        logging.info("Saving summary to %s/%s", outputFolder, fileNameReport)
+        with open("%s/%s"%(outputFolder, fileNameReport),'w') as fh:
+            self.autoencoder.summary(print_fn=lambda x: fh.write(x + '\n'))
     
+        if transfromations is not None:
+            fileNameTransfromations = "auoencoder_inputTransformation.json"
+            logging.info("Saving transofmration factors for inputvariables at: %s/%s",outputFolder, fileNameTransfromations)
+            with open("%s/%s"%(outputFolder, fileNameTransfromations), "w") as f:
+                json.dump(transfromations, f, indent=2,  separators=(",", ": "))
             
     def getInfoDict(self):
         """ Save attributies in dict """
@@ -359,7 +382,11 @@ class Autoencoder:
         for attribute in inspect.getmembers(self):
             if attribute[0].startswith("__"):
                 continue
-            if isinstance(attribute[1], (int, float, list, str, dict)) or attribute[1] is None: 
-                info[attribute[0]] = attribute[1]
-
+            if isinstance(attribute[1], (int, float, list, str, dict)) or attribute[1] is None:
+                key, attribute = attribute
+                if key == "metrics":
+                    if isinstance(attribute, list):
+                        attribute = [x.__name__ if callable(x) else x for x in attribute]
+                info[key] = attribute         
+                
         return info
