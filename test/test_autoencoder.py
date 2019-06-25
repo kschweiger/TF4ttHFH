@@ -154,24 +154,20 @@ def test_autoencoder_compileModel():
     
 def test_autoencoder_fitModel_exceptions():
     testDataArray = np.ndarray(shape=(20,5))
-    testWeightDataArray = np.ndarray(shape=(20,1))
     autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
     autoencoder.setOptimizer(optimizerName="rmsprop")
     autoencoder.buildModel()
     with pytest.raises(RuntimeError):
-        autoencoder.trainModel(trainingData=testDataArray, trainWeights=testWeightDataArray)
+        autoencoder.trainModel(trainingData=testDataArray)
     autoencoder.compileModel()
     with pytest.raises(TypeError):
-        autoencoder.trainModel(trainingData = None,  trainWeights=testWeightDataArray)
-    with pytest.raises(TypeError):
-        autoencoder.trainModel(trainingData = testDataArray,  trainWeights=None)
+        autoencoder.trainModel(trainingData = None)
 
 def test_autoencoder_evalModel_exceptions():
     testDataArray = np.ndarray(shape=(20,5))
-    testWeightDataArray = np.ndarray(shape=(20,1))
     autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
     with pytest.raises(RuntimeError):
-        autoencoder.evalModel(testData=testDataArray, testWeights=testWeightDataArray, variables=[], outputFolder="some/Folder")
+        autoencoder.evalModel(testData=testDataArray, testWeights=None, variables=[], outputFolder="some/Folder")
 
 def test_autoencoder_getInfoDict():
     autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
@@ -180,3 +176,52 @@ def test_autoencoder_getInfoDict():
 
     assert isinstance(info, dict)
     assert info.keys() != []
+
+def test_autoencoder_getReconstrionError_exception():
+    autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
+
+    print(isinstance(np.ndarray(shape=(5,1)), np.ndarray), type(np.ndarray(shape=(5,1))))
+    
+    inputData = np.ndarray(shape=(5,1))
+    
+    with pytest.raises(TypeError):
+        autoencoder.getReconstructionErr(None)
+
+    with pytest.raises(RuntimeError):
+        autoencoder.getReconstructionErr(inputData)
+
+def test_autoencoder_getReconstrionError(mocker):
+    autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
+    inputDataList = [(1.0,2.0,3.0,4.0),(2.0,7.0,4.0,5.0), (3.0,10.0,2.0,8.0)]
+    #inputDataList = [(2.0,7.0,4.0,5.0)]
+    inputData = np.array(inputDataList, dtype=float)
+    predictionDataList = [(2.0,1.0,1.0,8.0), (3.0,6.0,4.0,7.0), (7.0,2.0,4.0,7.0)]
+    #predictionDataList = [(3.0,6.0,4.0,7.0)]
+
+    expectedErr = []
+    for i in range(len(inputDataList)):
+        squaredSum = 0
+        print(predictionDataList[i],inputDataList[i])
+        for j in range(len(inputDataList[i])):
+            print(predictionDataList[i][j],inputDataList[i][j])
+            squaredSum += (predictionDataList[i][j] - inputDataList[i][j])**2
+        expectedErr.append(squaredSum/float(len(inputDataList[i])))
+        
+    print(expectedErr)
+    
+    mocker.patch.object(Autoencoder, "_getAutoencoderPrediction",
+                        return_value=np.array(predictionDataList, dtype=float))
+
+    
+    autoencoder.modelTrained = True
+
+    metric, err = autoencoder.getReconstructionErr(inputData)
+
+
+    print(err)
+    
+    assert metric == autoencoder.loss
+    assert isinstance(err, np.ndarray)
+
+    for iVal, val in enumerate(expectedErr):
+        assert val == err[iVal]

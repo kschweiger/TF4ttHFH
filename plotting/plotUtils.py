@@ -12,12 +12,16 @@ def getColors():
 def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, savePDF=True):
     fig, base = plt.subplots(dpi=150)
     for iVal, values in enumerate(listOfValues):
+        if listOfWeights is not None:
+            thisWeight = listOfWeights[iVal]
+        else:
+            thisWeight = None
         h = base.hist(values,
                       bins=nBins,
                       range=binRange,
                       linewidth=2,
                       density=normalized,
-                      weights=listOfWeights[iVal],
+                      weights=thisWeight,
                       color = getColors()[iVal],
                       histtype='step')
 

@@ -15,6 +15,8 @@ from training.dataProcessing import Sample, Data
 from training.autoencoder import Autoencoder
 from training.trainUtils import r_square
 
+from plotting.plotUtils import make1DHistoPlot
+
 from utils.utils import initLogging, checkNcreateFolder
 
 class TrainingConfig(ConfigReaderBase):
@@ -84,13 +86,13 @@ class TrainingConfig(ConfigReaderBase):
                                                       activationDecoderSide = self.readConfig.get(sectionName, "activationDecoderSide"),
                                                       activationEncoderSide = self.readConfig.get(sectionName, "activationEncoderSide")))
         
-        self.trainSamples = {}
+        self.sampleInfos = {}
         sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
                 raise KeyError("Sample %s not defined in config (as section) only defined in General.samples"%sample)
-            self.trainSamples[sample] = sampleTuple(input =  self.readConfig.get(sample, "input"),
+            self.sampleInfos[sample] = sampleTuple(input =  self.readConfig.get(sample, "input"),
                                                     label =  self.readConfig.get(sample, "label"),
                                                     xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
                                                     nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
@@ -109,19 +111,6 @@ class TrainingConfig(ConfigReaderBase):
         self.decoder = coderTuple(activation =  decoderActivation,
                                   dimention =  self.net.inputDimention)
         
-            
-    def setOptionWithDefault(self, section, option, default, getterType="str"):
-        if self.readConfig.has_option(section, option):
-            if getterType == "float":
-                return self.readConfig.getfloat(section, option)
-            elif getterType == "int":
-                return self.readConfig.getint(section, option)
-            elif getterType == "bool":
-                return self.readConfig.getboolean(section, option)
-            else:
-                return self.readConfig.get(section, option)
-        else:
-            return default
 
 def buildActivations(config):
     """ Function building the activations are expected by the Autoencoder class """
@@ -150,12 +139,12 @@ def initialize(config):
         logging.info("Adding sample %s", sample)
         allSamples.append(
             Sample(
-                inFile = config.trainSamples[sample].input,
-                label = config.trainSamples[sample].label,
+                inFile = config.sampleInfos[sample].input,
+                label = config.sampleInfos[sample].label,
                 labelID = iSample,
-                xsec = config.trainSamples[sample].xsec,
-                nGen = config.trainSamples[sample].nGen,
-                dataType = config.trainSamples[sample].datatype
+                xsec = config.sampleInfos[sample].xsec,
+                nGen = config.sampleInfos[sample].nGen,
+                dataType = config.sampleInfos[sample].datatype
             )
         )
         logging.info("Added Sample - %s",allSamples[iSample].getLabelTuple())
@@ -195,7 +184,7 @@ def trainAutoencoder(config):
         encoderActivation = thisEncoderActivation,
         decoderActivation = thisDecoderActivation,
         loss = config.net.loss,
-        metric = [r_square,'mae'],
+        metric = ['mae',"msle","mse"],
         batchSize = config.net.batchSize
     )
 
@@ -208,7 +197,7 @@ def trainAutoencoder(config):
     logging.info("Compiling model")
     thisAutoencoder.compileModel()
     
-    trainData = data.getTrainData()
+    trainData = data.getTrainData(applyTrainWeight=True)
     # print(data.trainVariables)
     # print(data.trainDF[data.trainVariables])
     # #print(data.untransfromedDF[data.trainVariables[1]])
@@ -216,7 +205,7 @@ def trainAutoencoder(config):
     # print(trainData)
     # input("Press ret")
     
-    testData = data.getTestData()
+    testData = data.getTestData(applyTrainWeight=True)
 
     trainWeights = data.trainTrainingWeights
     testWeights = data.testTrainingWeights
@@ -224,12 +213,24 @@ def trainAutoencoder(config):
     logging.info("Fitting model")
     thisAutoencoder.autoencoder.summary()
     input("Press ret")
-    thisAutoencoder.trainModel(trainData, trainWeights,
+    thisAutoencoder.trainModel(trainData,
                                epochs = config.net.trainEpochs,
                                valSplit = config.net.validationSplit)
 
     logging.info("Evaluation....")
-    thisAutoencoder.evalModel(testData, testWeights,data.trainVariables, config.output, True, True)
+    thisAutoencoder.evalModel(testData, testWeights, data.trainVariables, config.output, True, True)
+    logging.info("Getting reco error for loss")
+    reconstMetric, reconstErrTest = thisAutoencoder.getReconstructionErr(testData)
+    reconstMetric, reconstErrTrain = thisAutoencoder.getReconstructionErr(trainData)
+    make1DHistoPlot([reconstErrTest, reconstErrTrain], None,
+                    "{0}/{1}_{2}".format(config.output, "TrainingReconst", reconstMetric),
+                    20,
+                    (0, 2),
+                    "Loss function",
+                    ["Test Sample", "Training Sample"],
+                    normalized=True)
+    
+
     
     logging.debug("Copying used config to outputfolder")
     shutil.copy2(config.path, config.output+"/usedConfig.cfg")

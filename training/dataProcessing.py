@@ -47,10 +47,12 @@ class Sample:
 
         ##### Add combined wightes to the dataframe
         # It is expected that all these weights are present in the dataset- even if they are all 1.0
-        df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight)
+        logging.warning("Trigger weight disabled")
+        df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
 
         weightSum = sum(df["eventWeight"].values)
-        df = df.assign(trainWeight=lambda x: x.eventWeight/weightSum)
+        #df = df.assign(trainWeight=lambda x: x.eventWeight/weightSum)
+        df = df.assign(trainWeight=lambda x: x.eventWeight)
 
         # add lumi weight
         if not self.isData:
@@ -132,16 +134,19 @@ class Data:
 
         self.allVariables = list(self.fullDF.columns)
 
-    def transformData(self):
+    def transformData(self, conversion=None):
         method = self.transfromationMethod
         self.conversions = {}
         if method == "Gauss":
             logging.debug("Using gauss method to transfrom dataframe")
-            self.conversions["mu"] = {}
-            self.conversions["std"] = {}
-            for variable in self.trainVariables:
-                self.conversions["mu"][variable] = float(self.untransfromedDF[variable].mean())
-                self.conversions["std"][variable] = float(self.untransfromedDF[variable].std())
+            if conversion is None:
+                self.conversions["mu"] = {}
+                self.conversions["std"] = {}
+                for variable in self.trainVariables:
+                    self.conversions["mu"][variable] = float(self.untransfromedDF[variable].mean())
+                    self.conversions["std"][variable] = float(self.untransfromedDF[variable].std())
+            else:
+                self.conversions = conversion
                 
             self.fullDF[self.trainVariables] = ((self.untransfromedDF[self.trainVariables] - self.untransfromedDF[self.trainVariables].mean())/
                                                 self.untransfromedDF[self.trainVariables].std())
@@ -150,24 +155,36 @@ class Data:
         else:
             raise NotImplementedError("Method %s is not supported")
         
-        
-    def _getData(self, getTrain=True, asMatrix=True):
+    def _getData(self, getTrain=True, asMatrix=True, applyTrainWeight=False, applyLumiWeight=False):
         """
         Helper function for getting training or testing data
         """
         requestedDF = self.trainDF if getTrain else self.testDF
+        if applyTrainWeight:
+            requestedDF = requestedDF.mul(self.trainTrainingWeights if getTrain else self.testTrainingWeights,
+                                          axis=0)
+        if applyLumiWeight:
+            requestedDF = requestedDF.mul(self.trainLumiWeights if getTrain else self.testLumiWeights,
+                                          axis=0)
+        
         if asMatrix:
             return requestedDF[self.trainVariables].values
         else:
             return requestedDF[self.trainVariables]
         
-    def getTrainData(self, asMatrix=True):
+    def getTrainData(self, asMatrix=True, applyTrainWeight=False, applyLumiWeight=False):
         """ Public wrapper for _getData for training dataset """
-        return self._getData(getTrain=True, asMatrix=asMatrix)
+        return self._getData(getTrain=True,
+                             asMatrix=asMatrix,
+                             applyTrainWeight=applyTrainWeight,
+                             applyLumiWeight=applyLumiWeight)
 
-    def getTestData(self, asMatrix=True):
+    def getTestData(self, asMatrix=True, applyTrainWeight=False, applyLumiWeight=False):
         """ Public wrapper for _getData for testing dataset """
-        return self._getData(getTrain=False, asMatrix=asMatrix)
+        return self._getData(getTrain=False,
+                             asMatrix=asMatrix,
+                             applyTrainWeight=applyTrainWeight,
+                             applyLumiWeight=applyLumiWeight)
 
     @property
     def trainTrainingWeights(self):

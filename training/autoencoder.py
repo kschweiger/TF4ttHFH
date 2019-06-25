@@ -5,9 +5,10 @@ import json
 import numpy as np
 
 from keras.layers import Input, Dense
-from keras.models import Model
-from keras import regularizers, losses, callbacks, optimizers
+from keras.models import Model, load_model
+from keras import regularizers, losses, callbacks, optimizers, metrics
 from keras.utils import plot_model, print_summary
+from tensorflow import Session
 
 from training.trainUtils import r_square
 import plotting.plotUtils
@@ -68,6 +69,9 @@ class Autoencoder:
 
         self.hiddenLayerEncoderActivation = []
         self.hiddenLayerDecoderActivation = []
+
+        self.passedEncoderActivation = encoderActivation
+        self.passedDecoderActivation = decoderActivation
         
         if isinstance(encoderActivation, str) and isinstance(decoderActivation, str):
             self.encoderActivation = encoderActivation
@@ -82,11 +86,14 @@ class Autoencoder:
                 self.hiddenLayerEncoderActivation.append(encoderActivation[i])
                 self.hiddenLayerDecoderActivation.append(decoderActivation[i])
 
-        self.supportedLosses = ["MSE", "LOGCOSH", "MEA"]
+        self.supportedLosses = ["MSE", "LOGCOSH", "MEA", "MSLE"]
+        self.loss = loss
         self.lossFunction = self._getLossInstanceFromName(loss)
         self.metrics = metric
         self.optimizer = None
         self.batchSize = batchSize
+
+        self.autoencoder = None
         
         self.modelBuilt = False
         self.modelCompiled = False
@@ -113,6 +120,8 @@ class Autoencoder:
             return losses.logcosh
         if lossName == "MAE":
             return losses.mean_absolute_error
+        if lossName == "MSLE":
+            return losses.mean_squared_logarithmic_error
 
     def setOptimizer(self, **kwargs):
         """ Function for setting the optimizer """
@@ -276,14 +285,12 @@ class Autoencoder:
 
         return True
 
-    def trainModel(self, trainingData, trainWeights, epochs=100, valSplit=0.25):
+    def trainModel(self, trainingData, epochs=100, valSplit=0.25):
         """ Train model with setting set by attributes and argements """
         if not self.modelCompiled:
             raise RuntimeError("Model not compiled")
         if not isinstance(trainingData, np.ndarray):
             raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingData))
-        if not isinstance(trainWeights, np.ndarray):
-            raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainWeights))
         
         logging.info("Starting training of the autoencoder %s", self.autoencoder)
         self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
@@ -291,26 +298,26 @@ class Autoencoder:
                                                  epochs = epochs,
                                                  shuffle = True,
                                                  callbacks = None, #May implement loss history at some point
-                                                 validation_split = valSplit,
-                                                 sample_weight = trainWeights)
+                                                 validation_split = valSplit)
 
         self.modelTrained = True
         
         return True
 
-    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False, plotMetics=False):
+    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False, plotMetics=False, splitNetwork=True, plotPostFix=""):
         """ Evaluate trained model """
         if not self.modelTrained:
             raise RuntimeError("Model not yet trainede")
 
-        self.modelEvaluation = self.autoencoder.evaluate(testData, testData,
-                                                         sample_weight = testWeights)
+        self.modelEvaluation = self.autoencoder.evaluate(testData, testData)
 
         #print(self.modelEvaluation)
-        
-        predictEncoder = self.encoder.predict(testData)
-        predictDecoder = self.decoder.predict(predictEncoder)
-
+        if splitNetwork:
+            predictEncoder = self.encoder.predict(testData)
+            predictDecoder = self.decoder.predict(predictEncoder)
+            logging.info("Mean activations: %s",predictEncoder.mean())
+        else:
+            predictDecoder = self.autoencoder.predict(testData)
         # print("Input test data")
         # print(testData)
         # print("Prediction encoder layer")
@@ -318,7 +325,7 @@ class Autoencoder:
         # print("Prediction decoder layer")
         # print(predictDecoder)
 
-        # print("Mean activations: {}".format(predictEncoder.mean()))
+
 
         if plotMetics:
             logging.info("Saving epoch metrics")
@@ -331,22 +338,27 @@ class Autoencoder:
                 plotVals = [(xAxis, metricTrain), (xAxis, metricVal)]
                 
                 plotting.plotUtils.make1DPlot(plotVals,
-                                              output = outputFolder+"/"+self.name+"_metrics_"+metric,
+                                              output = outputFolder+"/"+self.name+"_metrics_"+metric+plotPostFix,
                                               xAxisName = "Epochs",
                                               yAxisName = metric,
                                               legendEntries = ["Training Sample", "Validation Sample"])
 
         
         if plotPrediction:
+            thisLegend = ["Test Input", "Decoder prediction"]
+            if plotPostFix != "":
+                thisLegend = [x+" ("+plotPostFix.replace("_","")+")" for x in thisLegend]
             for iVar, var in enumerate(variables):
                 plotting.plotUtils.make1DHistoPlot([testData[:,iVar], predictDecoder[:,iVar]],
                                                    [testWeights, testWeights],
-                                                   outputFolder+"/"+self.name+"_EvalOutput_"+var,
+                                                   outputFolder+"/"+self.name+"_EvalOutput_"+var+plotPostFix,
                                                    nBins = 40,
                                                    binRange = (-4, 4),
                                                    varAxisName = var,
-                                                   legendEntries = ["Test Input", "Decoder prediction"])
+                                                   legendEntries = thisLegend)
 
+        return predictDecoder
+    
     def saveModel(self, outputFolder, transfromations=None):
         """ Function for saving the model and additional information """
         fileNameModel = "trainedModel.h5py"
@@ -374,7 +386,32 @@ class Autoencoder:
             logging.info("Saving transofmration factors for inputvariables at: %s/%s",outputFolder, fileNameTransfromations)
             with open("%s/%s"%(outputFolder, fileNameTransfromations), "w") as f:
                 json.dump(transfromations, f, indent=2,  separators=(",", ": "))
-            
+
+    def loadModel(self, inputFolder):
+        """ Loads a model created with the class """
+        self.autoencoder = load_model("{0}/trainedModel.h5py".format(inputFolder))
+        self.modelTrained = True
+
+    def _getAutoencoderPrediction(self, inputData):
+        return self.autoencoder.predict(inputData)
+    
+    def getReconstructionErr(self, inputData, evalMetric=None):
+        """ Prdiction of autoencoder for given input dataset. Returns the reconstruction error """
+        if not isinstance(inputData, np.ndarray):
+            raise TypeError("Passed inputData is expected to be np.ndarray but is %s"%type(inputData))
+        if not self.modelTrained:
+            raise RuntimeError("No model trained or loaded")
+        if evalMetric is None: # If None is passed use loss function fefined in setup
+            evalMetric = self.loss    
+
+        reconstruction = self._getAutoencoderPrediction(inputData)
+        
+        metricFunction = getattr(metrics, evalMetric)
+
+        reconstructionError = Session().run(metricFunction(inputData, reconstruction))
+
+        return evalMetric, reconstructionError
+                
     def getInfoDict(self):
         """ Save attributies in dict """
 

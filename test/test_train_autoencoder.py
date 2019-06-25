@@ -151,11 +151,11 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.batchSize == 128
     
     for sample in expectedSampels:
-        testConfig.trainSamples[sample].input == configExpectationRequired[sample]["input"]
-        testConfig.trainSamples[sample].label == configExpectationRequired[sample]["label"]
-        testConfig.trainSamples[sample].xsec == 1.0
-        testConfig.trainSamples[sample].nGen == 1.0
-        testConfig.trainSamples[sample].datatype == configExpectationRequired[sample]["datatype"]
+        testConfig.sampleInfos[sample].input == configExpectationRequired[sample]["input"]
+        testConfig.sampleInfos[sample].label == configExpectationRequired[sample]["label"]
+        testConfig.sampleInfos[sample].xsec == 1.0
+        testConfig.sampleInfos[sample].nGen == 1.0
+        testConfig.sampleInfos[sample].datatype == configExpectationRequired[sample]["datatype"]
         
     assert testConfig.nHiddenLayers == 0
     assert testConfig.hiddenLayers == []
@@ -200,11 +200,11 @@ def test_config_allplusHidden(mocker, mockExpectationConfig):
     assert testConfig.net.batchSize == int(configExpectation["NeuralNet"]["batchSize"])
     
     for sample in expectedSampels:
-        testConfig.trainSamples[sample].input == configExpectation[sample]["input"]
-        testConfig.trainSamples[sample].label == configExpectation[sample]["label"]
-        testConfig.trainSamples[sample].xsec == configExpectation[sample]["xsec"]
-        testConfig.trainSamples[sample].nGen == configExpectation[sample]["nGen"]
-        testConfig.trainSamples[sample].datatype == configExpectation[sample]["datatype"]
+        testConfig.sampleInfos[sample].input == configExpectation[sample]["input"]
+        testConfig.sampleInfos[sample].label == configExpectation[sample]["label"]
+        testConfig.sampleInfos[sample].xsec == configExpectation[sample]["xsec"]
+        testConfig.sampleInfos[sample].nGen == configExpectation[sample]["nGen"]
+        testConfig.sampleInfos[sample].datatype == configExpectation[sample]["datatype"]
 
     assert testConfig.nHiddenLayers == int(configExpectation["NeuralNet"]["hiddenLayers"])
 

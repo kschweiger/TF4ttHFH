@@ -21,16 +21,16 @@ class ConfigReaderBase:
 
         return thisconfig
         
-    def readMulitlineOption(self, section, thisOption, optionType):
+    def readMulitlineOption(self, section, thisOption, optionType, sep=" : "):
         ret = {}
         option = self.readConfig.get(section, thisOption)
         for elem in option.split("\n"):
             if elem == "":
                 continue
             if optionType == "Single":
-                name, value = elem.split(" : ")
+                name, value = elem.split(sep)
             elif optionType == "List":
-                name, value = elem.split(" : ")
+                name, value = elem.split(sep)
                 value = self.getList(value)
             else:
                 raise RuntimeError
@@ -38,6 +38,20 @@ class ConfigReaderBase:
             ret[name] = value
 
         return ret
+
+    def setOptionWithDefault(self, section, option, default, getterType="str"):
+        if self.readConfig.has_option(section, option):
+            if getterType == "float":
+                return self.readConfig.getfloat(section, option)
+            elif getterType == "int":
+                return self.readConfig.getint(section, option)
+            elif getterType == "bool":
+                return self.readConfig.getboolean(section, option)
+            else:
+                return self.readConfig.get(section, option)
+        else:
+            return default
+
     
     @staticmethod
     def getList(value):

@@ -236,3 +236,59 @@ def test_data_transfromation_gauss(mocker, testData):
 
     for var in unChangedVar:
         assert (data.fullDF[var] == testData[var]).all()
+
+
+def test_data_getTrainTestData_reweighting_train(mocker, testData):
+    testDatamod = testData.copy()
+    testDatamod["puWeight"] =  testDatamod["puWeight"].mul(1.5, axis=0)
+    
+    mocker.patch("pandas.read_hdf", side_effect=[testDatamod, testDataSmall])
+    samples = [Sample("/path/to/some/file.h5", label="Sample0", labelID=0)]
+
+    testPercentage = 0.2
+    trainVars = ["Var0", "Var1", "Var2"]
+    data = Data(samples, trainVars, 0.0, transform=False)
+
+    trainDataframe = data.getTrainData(asMatrix=False, applyTrainWeight=True)
+
+    for var in ["Var0", "Var1", "Var2"]:
+        print(trainDataframe[var])
+        print(testData[var])
+        assert (trainDataframe[var] != testData[var]).all()
+        assert (testData[var].mul(1.5, axis=0) == trainDataframe[var]).all()
+
+
+def test_data_getTrainTestData_reweighting_Lumi_MC(mocker, testData):
+    mocker.patch("pandas.read_hdf", side_effect=[testData, testDataSmall])
+    _xsec = 1.0
+    _nGen = 2.0
+    _lumi = 3.0
+    samples = [Sample("/path/to/some/file.h5", label="Sample0", labelID=0, dataType="mc", xsec=_xsec, nGen=_nGen)]
+
+    testPercentage = 0.2
+    trainVars = ["Var0", "Var1", "Var2"]
+    data = Data(samples, trainVars, 0.0, transform=False, lumi=_lumi)
+    
+    trainDataframe = data.getTrainData(asMatrix=False, applyLumiWeight=True)
+    for var in ["Var0", "Var1", "Var2"]:
+        print(trainDataframe[var])
+        print(testData[var])
+        assert (trainDataframe[var] != testData[var]).all()
+        assert (testData[var].mul((1000*_xsec*_lumi)/_nGen, axis=0) == trainDataframe[var]).all()
+
+def test_data_getTrainTestData_reweighting_Lumi_data(mocker, testData):
+    mocker.patch("pandas.read_hdf", side_effect=[testData, testDataSmall])
+    _xsec = 1.0
+    _nGen = 2.0
+    _lumi = 3.0
+    samples = [Sample("/path/to/some/file.h5", label="Sample0", labelID=0, dataType="data", xsec=_xsec, nGen=_nGen)]
+
+    testPercentage = 0.2
+    trainVars = ["Var0", "Var1", "Var2"]
+    data = Data(samples, trainVars, 0.0, transform=False, lumi=_lumi)
+    
+    trainDataframe = data.getTrainData(asMatrix=False, applyLumiWeight=True)
+    for var in ["Var0", "Var1", "Var2"]:
+        print(trainDataframe[var])
+        print(testData[var])
+        assert (trainDataframe[var] == testData[var]).all()

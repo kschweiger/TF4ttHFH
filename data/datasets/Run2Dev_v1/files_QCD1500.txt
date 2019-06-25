@@ -1,0 +1,17 @@
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_36_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_37_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_38_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_39_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_40_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_41_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_42_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_43_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_44_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_45_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_46_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_47_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_48_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_49_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_50_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_51_out.root
+/scratch/koschwei/flatTuples/Run2Dev_v1/QCD1500/job_52_out.root
