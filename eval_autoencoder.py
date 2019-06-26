@@ -10,6 +10,7 @@ import json
 from collections import namedtuple
 
 import numpy as np
+import pickle
 
 from utils.ConfigReader import ConfigReaderBase
 from training.dataProcessing import Sample, Data
@@ -154,6 +155,7 @@ def evalAutoencoder(config):
     legend = []
     inputDatas = []
     predictedDatas = []
+    datasets = []
     for key in data:
         inputData = data[key].getTestData(asMatrix=True,
                                           applyTrainWeight=True,
@@ -166,10 +168,19 @@ def evalAutoencoder(config):
                                                   plotPostFix="_"+key)
         inputDatas.append(inputData)
         predictedDatas.append(predictedData)
+        datasets.append(key)
         reconstMetric, reconstErr[key] = thisAutoencoder.getReconstructionErr(inputData)
         reconstErrList.append(reconstErr[key])
         legend.append(key)
 
+    data2Pickle = { "variables" : config.trainingConifg.trainingVariables,
+                    "datasets" : datasets,
+                    "inputData" : inputDatas,
+                    "predictionData" : predictedDatas}
+
+    with open("{0}/evalDataArrays.pkl".format(config.plottingOutput), "wb") as pickleOut:
+        pickle.dump(data2Pickle, pickleOut)
+        
     for iVar, var in enumerate(config.trainingConifg.trainingVariables):
         make1DHistoPlot([inputDatas[i][:,iVar] for i in range(len(inputDatas))],
                         None,
@@ -177,7 +188,8 @@ def evalAutoencoder(config):
                         nBins = 40,
                         binRange = (-4, 4),
                         varAxisName = var,
-                        legendEntries = legend)
+                        legendEntries = legend,
+                        normalized=True)
         
     make1DHistoPlot(reconstErrList, None,
                     "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, reconstMetric),
@@ -186,6 +198,14 @@ def evalAutoencoder(config):
                     reconstMetric,
                     legend,
                     normalized=True)
+    make1DHistoPlot(reconstErrList, None,
+                    "{0}/{1}_{2}_log".format(config.plottingOutput, config.plottingPrefix, reconstMetric),
+                    config.plottingBins,
+                    (config.plottingRangeMin, config.plottingRangeMax),
+                    reconstMetric,
+                    legend,
+                    normalized=True,
+                    log=True)
 
 def parseArgs(args):
     import argparse

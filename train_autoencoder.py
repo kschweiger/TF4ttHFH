@@ -49,7 +49,7 @@ class TrainingConfig(ConfigReaderBase):
 
         self.selection = self.setOptionWithDefault("General", "selection", None)
         self.ShuffleData = self.setOptionWithDefault("General", "ShuffleData", True, "bool")
-        self.SuffleSeed = self.setOptionWithDefault("General", "SuffleSeed", None)
+        self.SuffleSeed = self.setOptionWithDefault("General", "SuffleSeed", None, "int")
 
         self.selection = None if self.selection == "None" else self.selection
         self.SuffleSeed = None if self.SuffleSeed == "None" else self.SuffleSeed

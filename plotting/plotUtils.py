@@ -9,7 +9,7 @@ import numpy as np
 def getColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, savePDF=True):
+def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, savePDF=True):
     fig, base = plt.subplots(dpi=150)
     for iVal, values in enumerate(listOfValues):
         if listOfWeights is not None:
@@ -23,6 +23,7 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
                       density=normalized,
                       weights=thisWeight,
                       color = getColors()[iVal],
+                      log=log,
                       histtype='step')
 
     base.set_xlabel(varAxisName)

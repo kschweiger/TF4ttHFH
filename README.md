@@ -109,9 +109,26 @@ In the config the follow parameters of the network can be set:
 
 Optimizers and loss functions can be "added" by modifiying the `supportedLosses` attribute and `_getLossInstanceFromName` and `setOptimizer` methods in `training/autoencoder/autoencoder.py`.
 
+#### Training
+The training for autoencoders is implemented in `train_autoencoder.py`. It only requires a config to be passed with the `--config` flag. For example configs check `data/autoencoder_example.cfg`, `data/autoencoder_example_minimal.cfg` or the test script `test/test_train_autoencoder.py`
+
+The output folder set in the config will be created if not present on the FS and will overwrite existing files if existent. In the output folder the following files will be created:
+
+- Input information like the passed configuration file (`usedConfig.cfg`), applied transformations (`auoencoder_inputTransformation.json`), set attributes of the `Autoencoder` class (`autoencoder_attributes.json`)
+- Model summary (`autoencoder_report.txt`)
+- Model (`trainedModel.h5py`) and weights (`trainedModel_weights.h5`)
+- Plots for all set metrics and the loss per epoch as pdf
+- Plots comparing autoencoder input and prediction for each variable as pdf
+
+
+#### Evaluation
+Evaluating a training done with `train_autoencoder.py` (it requires some of the output files) can be done with the `eval_autoencoder.py` script. It requires only a config to be passed with the `--config` flag.
+
 ## Plotting
-Several plot scripts are provided to check input dataframes and output.      
-For validation of the input dataset `plotting/checkcheckInputData.py` can be used. Execute from **within** the plotting folder!
+Several plot scripts are provided to check input dataframes and training output.   All scripts are expected to be executed from **within** the plotting folder
+
+- For validation of the input dataset `plotting/checkcheckInputData.py` can be used.
+- `compareTransfromedVariables.py` can be used to compare the output of multiple runs of `eval_autoencoder.py`. Point with `--input` to the `evalDataArrays.pkl` files in the output folder of the evaluation script. Will produce plot comparing *Input Dataset*, *Predictions* and both for each dataset processed in the eval script. 
 
 ## The SLURM cluster (T3@PSI)
 In order to run on GPUs from the T3@PSI the SLURM cluser needs to be used. See [README](slurm/README.md) for instructions and tests.
