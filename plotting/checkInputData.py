@@ -23,7 +23,8 @@ def transformDataframe(dataframe, variables):
     return transformedDataframe
 
 def getWeights(dataframe, addWeights=[]):
-    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
+    logging.warning("Trigger weight disabled")
+    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr"]#, "triggerWeight"]
     retWeight = None
     for weight in standardWeights+addWeights:
         if retWeight is None:
@@ -80,18 +81,21 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
 
     listOfValues = []
     listOfWeights = []
+    texts = []
     for idf, fullDF in enumerate(dataframes):
         df = fullDF.loc[:, [variable]]
         if transform:
             df = transformDataframe(df, [variable])
-        var = df.loc[:, [variable]].to_numpy()
-        listOfValues.append(var)
+        var = df.loc[:, [variable]].to_numpy()[:, 0]
+        #listOfValues.append(var)
         weights = getWeights(fullDF)
         weights = weights.to_numpy()
         weights = weights[:, 0]
         logging.debug("Mean weight : %s (%s)", weights.mean(), dfNames[idf] )
         listOfWeights.append(weights)
-
+        listOfValues.append(var)
+        texts.append("Mean: {0:.2f}, std: {1:.2f}".format((var*weights).mean(), (var*weights).std()))
+    #listOfWeights = None
     return make1DHistoPlot(listOfValues, listOfWeights,
                            output=output,
                            nBins=nBins,
@@ -99,6 +103,8 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
                            varAxisName=varAxisName,
                            legendEntries=dfNames,
                            normalized=normalized,
+                           text=texts,
+                           xtextStart=0.25,
                            savePDF=savePDF)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
@@ -305,20 +311,78 @@ def parseArgs(args):
         action="store_true",
         help="Transforms the variable to distributions with mean=0 and sigma=1",
     )
+    argumentparser.add_argument(
+        "--merge",
+        action="store",
+        type=str,
+        nargs="+",
+        help="Styleconfig path",
+        default = None
+    )
+    argumentparser.add_argument(
+        "--xsec",
+        action="store",
+        type=float,
+        nargs="+",
+        help="Styleconfig path",
+        default = None
+    )
+    argumentparser.add_argument(
+        "--nGen",
+        action="store",
+        type=float,
+        nargs="+",
+        help="Styleconfig path",
+        default = None
+    )
     
     return argumentparser.parse_args(args)
 
+def mergeDatasets(args, variables):
+    assert len(args.merge) == len(args.xsec)
+    assert len(args.merge) == len(args.nGen)
+    
+    mergedDatasetName = [filename for filename in args.input if filename.startswith("merge") ][0]
+    mergedDatasetName = mergedDatasetName.replace("merge","")
+
+    allDataFrames = getDataframes(args.merge)
+    retDataFrames = []
+    mergedDataFrame = None
+    for iDataset, dataFrame in enumerate(allDataFrames):
+        thisXSec = args.xsec[iDataset]
+        thisNGen = args.nGen[iDataset]
+        sf = (41.5*1000*thisXSec*1)/thisNGen
+        logging.debug("Rewighting dataframe %s with %s entries", iDataset, dataFrame.shape[0])
+        logging.debug("Weighting df %s with xsec %s and nGen %s -- SF=%s",iDataset, thisXSec, thisNGen, sf)
+
+        dataFrame[variables] = dataFrame[variables] * sf
+        retDataFrames.append(dataFrame)
+        if mergedDataFrame is None:
+            mergedDataFrame = dataFrame.copy()
+        else:
+            mergedDataFrame = mergedDataFrame.append(dataFrame)
+            
+    return mergedDatasetName, mergedDataFrame, retDataFrames
+    
 def getDataframes(filesList):
     return [pd.read_hdf(fileName) for fileName in filesList]
 
 def process(args, styleConfig):
-    
-    
-    inputDFs = getDataframes(args.input)
+    inputDFs = getDataframes([filename for filename in args.input if not filename.startswith("merge") ])
+    vars2Process = generateVariableList(inputDFs[0], args.plotVars, args.excludeVars)
+    if len([filename for filename in args.input if filename.startswith("merge") ]) == 1:
+        mergedName, mergedDF, weightedDFs = mergeDatasets(args, vars2Process)
+
+        print(mergedDF)
+        inputDFs = inputDFs + [mergedDF]
+
+        if args.inputNames is not None:
+            args.inputNames = args.inputNames + [mergedName]
+        
     if args.inputNames is not None:
         assert len(args.inputNames) == len(inputDFs)
+        
     
-    vars2Process = generateVariableList(inputDFs[0], args.plotVars, args.excludeVars)
     if args.plotCorr:
         logging.info("Will do correlation plots")
         for iDF, inputDF in enumerate(inputDFs):

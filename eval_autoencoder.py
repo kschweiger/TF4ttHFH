@@ -42,7 +42,7 @@ class EvalConfig(ConfigReaderBase):
         self.trainingTransfromation = None
         with open("{0}/auoencoder_inputTransformation.json".format(self.trainingOutput), "r") as f:
             self.trainingTransfromation = json.load(f)
-
+        
         self.trainingConifg = TrainingConfig("{0}/usedConfig.cfg".format(self.trainingOutput))
 
         self.path2Model = "{0}/trainedModel.h5py".format(self.trainingOutput)
@@ -125,7 +125,8 @@ def initialize(config):
             transform = False
         )
 
-        data[group].transformData(conversion=config.trainingTransfromation)
+        data[group].transformations = config.trainingTransfromation
+        data[group].doTransformation = True
     return allSamples, data
 
         
@@ -150,17 +151,19 @@ def evalAutoencoder(config):
     )
 
     thisAutoencoder.loadModel(config.trainingOutput)
+
     reconstErr = {}
     reconstErrList = []
     legend = []
+    
     inputDatas = []
+    inputWeights = []
     predictedDatas = []
     datasets = []
     for key in data:
-        inputData = data[key].getTestData(asMatrix=True,
-                                          applyTrainWeight=True,
-                                          applyLumiWeight=True)
-        predictedData = thisAutoencoder.evalModel(inputData, None,
+        inputData = data[key].getTestData(asMatrix=True)
+        inputWeight = data[key].testTrainingWeights
+        predictedData = thisAutoencoder.evalModel(inputData, inputWeight,
                                                   config.trainingConifg.trainingVariables,
                                                   config.plottingOutput,
                                                   plotPrediction=True,
@@ -168,6 +171,7 @@ def evalAutoencoder(config):
                                                   plotPostFix="_"+key)
         inputDatas.append(inputData)
         predictedDatas.append(predictedData)
+        inputWeights.append(inputWeight)
         datasets.append(key)
         reconstMetric, reconstErr[key] = thisAutoencoder.getReconstructionErr(inputData)
         reconstErrList.append(reconstErr[key])
@@ -183,22 +187,22 @@ def evalAutoencoder(config):
         
     for iVar, var in enumerate(config.trainingConifg.trainingVariables):
         make1DHistoPlot([inputDatas[i][:,iVar] for i in range(len(inputDatas))],
-                        None,
+                        inputWeights,
                         "{0}/{1}_input_{2}".format(config.plottingOutput, config.plottingPrefix, var),
                         nBins = 40,
-                        binRange = (-4, 4),
+                        binRange = (-10, 10),
                         varAxisName = var,
                         legendEntries = legend,
                         normalized=True)
         
-    make1DHistoPlot(reconstErrList, None,
+    make1DHistoPlot(reconstErrList, inputWeights,
                     "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, reconstMetric),
                     config.plottingBins,
                     (config.plottingRangeMin, config.plottingRangeMax),
                     reconstMetric,
                     legend,
                     normalized=True)
-    make1DHistoPlot(reconstErrList, None,
+    make1DHistoPlot(reconstErrList, inputWeights,
                     "{0}/{1}_{2}_log".format(config.plottingOutput, config.plottingPrefix, reconstMetric),
                     config.plottingBins,
                     (config.plottingRangeMin, config.plottingRangeMax),

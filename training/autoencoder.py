@@ -285,7 +285,7 @@ class Autoencoder:
 
         return True
 
-    def trainModel(self, trainingData, epochs=100, valSplit=0.25):
+    def trainModel(self, trainingData, trainingWeights, epochs=100, valSplit=0.25):
         """ Train model with setting set by attributes and argements """
         if not self.modelCompiled:
             raise RuntimeError("Model not compiled")
@@ -298,7 +298,8 @@ class Autoencoder:
                                                  epochs = epochs,
                                                  shuffle = True,
                                                  callbacks = None, #May implement loss history at some point
-                                                 validation_split = valSplit)
+                                                 validation_split = valSplit,
+                                                 sample_weight = trainingWeights)
 
         self.modelTrained = True
         
@@ -352,8 +353,8 @@ class Autoencoder:
                 plotting.plotUtils.make1DHistoPlot([testData[:,iVar], predictDecoder[:,iVar]],
                                                    [testWeights, testWeights],
                                                    outputFolder+"/"+self.name+"_EvalOutput_"+var+plotPostFix,
-                                                   nBins = 40,
-                                                   binRange = (-4, 4),
+                                                   nBins = 60,
+                                                   binRange = (-10, 10),
                                                    varAxisName = var,
                                                    legendEntries = thisLegend)
 

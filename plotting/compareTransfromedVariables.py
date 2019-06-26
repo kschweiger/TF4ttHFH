@@ -4,7 +4,7 @@ import logging
 import json
 
 import pickle
-
+import numpy as np
 import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.abspath('../'))
 
@@ -21,11 +21,13 @@ def main(args):
             evalData[args.inputID[iData]] = pickle.load(f)
 
     assert evalData[args.inputID[0]]["variables"] == evalData[args.inputID[1]]["variables"]
-    assert evalData[args.inputID[0]]["datasets"] == evalData[args.inputID[1]]["datasets"]
     
     variables = evalData[args.inputID[0]]["variables"]
     datasets = evalData[args.inputID[0]]["datasets"]
-
+    if args.skipDataset is not None:
+        for ds in args.skipDataset:
+            datasets.remove(ds)
+    
     inputData = {}
     predictionData = {}
     for name in args.inputID:
@@ -43,7 +45,18 @@ def main(args):
                 predictionData[name][var][dataset] = dataListPred[iDataset]
                 logging.debug("Added prediction data for %s with len %s", dataset, len(inputData[name][var][dataset]))
         
-            
+
+    if args.transform:
+        transtransforms = {}
+        for iName, name in enumerate(args.inputID):
+            with open(args.useTransform,"r") as f:
+                transtransforms[name] = json.load(f)
+            for iVar, var in enumerate(variables):
+                for iDataset, dataset in enumerate(datasets):
+                    inputData[name][var][dataset] = transform("Gauss", inputData[name][var][dataset], [var], transtransforms[name])
+                    predictionData[name][var][dataset] = transform("Gauss", predictionData[name][var][dataset], [var], transtransforms[name])
+        
+                
     logging.info("Starting plotting")
     for var in variables:
         logging.info("Plotting var %s", var)
@@ -89,8 +102,15 @@ def main(args):
                             varAxisName = var,
                             legendEntries = legendAll,
                             normalized=True)
-    
-    
+
+def transform(method, data, variables, transformation):
+    if method == "Gauss":
+        std = np.array([transformation["std"][var] for var in variables])
+        mu = np.array([transformation["mu"][var] for var in variables])
+        return (data*std)+mu
+    else:
+        raise NotImplementedError("Method %s not implemented"%method)
+            
 
 def parseArgs(args):
     import argparse
@@ -129,6 +149,28 @@ def parseArgs(args):
         required=True,
         help="Output file",
     )
+    argumentparser.add_argument(
+        "--skipDataset",
+        action="store",
+        type=str,
+        nargs="+",
+        help="Datasets to be excluded",
+        default=None
+    )
+    argumentparser.add_argument(
+        "--transform",
+        action="store_true",
+        help="Transfrom the variabls back to physics distributions",
+    )
+    argumentparser.add_argument(
+        "--useTransform",
+        action="store",
+        type=str,
+        default=None,
+        help="Path to transfroamtions used in the training",
+    )
+    
+    
 
     return argumentparser.parse_args(args)
 

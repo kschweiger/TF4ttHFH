@@ -29,7 +29,7 @@ class Sample:
         self.data = None
         self.nEvents = -1
 
-    def loadDataframe(self, selection=None, lumi=1.0):
+    def loadDataframe(self, selection=None, lumi=1.0, normalizedWeight=False):
         """ Function for loading the data from the file and adding combined weight variables to dataframe"""
         logging.info("Loading dartaframe from fole %s", self.inFile)
         df = pd.read_hdf(self.inFile)
@@ -51,8 +51,10 @@ class Sample:
         df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
 
         weightSum = sum(df["eventWeight"].values)
-        #df = df.assign(trainWeight=lambda x: x.eventWeight/weightSum)
-        df = df.assign(trainWeight=lambda x: x.eventWeight)
+        if normalizedWeight:
+            df = df.assign(trainWeight=lambda x: x.eventWeight/weightSum)
+        else:
+            df = df.assign(trainWeight=lambda x: x.eventWeight)
 
         # add lumi weight
         if not self.isData:
@@ -60,7 +62,7 @@ class Sample:
         else:
             df = df.assign(lumiWeight=lambda x: 1.0)
         self.data = df
-
+        print(df["jets_pt_0"])
         return True
 
     def getLabelTuple(self):
@@ -84,14 +86,14 @@ class Data:
       ValueError : If testPercent is > 1
       RuntimeError : If an invalid trainig variable is passed
     """
-    def __init__(self, samples, trainVariables, testPercent, transform=True, selection=None, shuffleData=False, shuffleSeed=None, lumi=41.5):
+    def __init__(self, samples, trainVariables, testPercent, transform=True, selection=None, shuffleData=False, shuffleSeed=None, lumi=41.5, normalizedWeight=False):
         if testPercent > 1.0:
             raise ValueError("testPercent is required to be less than 1. Passed value = %s"%testPercent)
         trainDataframes = []
         classes = {}
         for sample in samples:
             logging.info("Loading dataframe for sample %s (Label: %s, labelID: %s, isData: %s)", sample, sample.label, sample.labelID, sample.isData)
-            sample.loadDataframe(selection=selection, lumi=lumi)
+            sample.loadDataframe(selection=selection, lumi=lumi, normalizedWeight=normalizedWeight)
             trainDataframes.append(sample.data)
             labelName, labelID = sample.getLabelTuple()
             classes[labelName] = labelID
@@ -100,6 +102,9 @@ class Data:
         df = pd.concat(trainDataframes)
         logging.debug("Number of events after concat = %s", df.shape[0])
 
+        if normalizedWeight:
+            df["trainWeight"] = df["trainWeight"]*df.shape[0]/len(samples)
+        
         del trainDataframes
 
         self.trainVariables = trainVariables
@@ -119,13 +124,8 @@ class Data:
             df = shuffle(df, random_state=self.shuffleSeed)
 
         self.fullDF = df.copy()
-        self.untransfromedDF = df.copy()
+        #self.untransfromedDF = df.copy()
 
-        self.transfromationMethod = "Gauss"
-        
-        if transform:
-            self.transformData()
-        
         self.nTest = int(self.fullDF.shape[0] * testPercent)
         self.testDF = self.fullDF.head(self.nTest)
         self.nTrain = int(self.fullDF.shape[0] - self.nTest)
@@ -134,39 +134,71 @@ class Data:
 
         self.allVariables = list(self.fullDF.columns)
 
-    def transformData(self, conversion=None):
-        method = self.transfromationMethod
-        self.conversions = {}
-        if method == "Gauss":
-            logging.debug("Using gauss method to transfrom dataframe")
-            if conversion is None:
-                self.conversions["mu"] = {}
-                self.conversions["std"] = {}
-                for variable in self.trainVariables:
-                    self.conversions["mu"][variable] = float(self.untransfromedDF[variable].mean())
-                    self.conversions["std"][variable] = float(self.untransfromedDF[variable].std())
-            else:
-                self.conversions = conversion
-                
-            self.fullDF[self.trainVariables] = ((self.untransfromedDF[self.trainVariables] - self.untransfromedDF[self.trainVariables].mean())/
-                                                self.untransfromedDF[self.trainVariables].std())
+        self.transfromationMethod = "Gauss"
+        self.doTransformation = False
+        
+        self.transformations = {}
+        
+        self.transformations["unweighted"] = self.getTransformation()
+
+        self.doTransformation = transform
+
+        
+    def getTransformation(self, applyTrainWeight=False, applyLumiWeight=False):
+        fullDF = self.getTrainData(asMatrix=False, applyTrainWeight=applyTrainWeight, applyLumiWeight=applyLumiWeight)
+        fullDF = fullDF.append(self.getTestData(asMatrix=False, applyTrainWeight=applyTrainWeight, applyLumiWeight=applyLumiWeight))
+        retConversion = {}
+        if self.transfromationMethod == "Gauss":
+            retConversion["mu"] = {}
+            retConversion["std"] = {}
+            for variable in self.trainVariables:
+                retConversion["mu"][variable] = float(fullDF[variable].mean())
+                retConversion["std"][variable] = float(fullDF[variable].std())
+                logging.debug("Added transformation with mean = %s and std = %s",float(fullDF[variable].mean()), float(fullDF[variable].std()))
         elif method == "Norm":
             raise NotImplementedError("Transforming variables to [0,1] not yet implemented")
         else:
             raise NotImplementedError("Method %s is not supported")
+                
+        return retConversion
+
+
+    def applyTransformation(self, dataframe, applyTrainWeight=False, applyLumiWeight=False):
+        if not applyTrainWeight and not applyLumiWeight:
+            transformation = self.transformations["unweighted"]
+        else:
+            raise RuntimeError
+
+        logging.debug("Using transfomrats: %s", transformation)
+        modDataFram = dataframe.copy()
+        if self.transfromationMethod == "Gauss":
+            # print("Std transfromation: %s", pd.Series(transformation["std"]))
+            # print("mu transfromation: %s", pd.Series(transformation["mu"]))
+            # print(dataframe[self.trainVariables])
+            modDataFram[self.trainVariables] = ((dataframe[self.trainVariables] - pd.Series(transformation["mu"]))/pd.Series(transformation["std"]))
+            #print(modDataFram[self.trainVariables])
+        elif method == "Norm":
+            raise NotImplementedError("Transforming variables to [0,1] not yet implemented")
+        else:
+            raise NotImplementedError("Method %s is not supported")
+        return modDataFram
         
     def _getData(self, getTrain=True, asMatrix=True, applyTrainWeight=False, applyLumiWeight=False):
         """
         Helper function for getting training or testing data
         """
-        requestedDF = self.trainDF if getTrain else self.testDF
+        if getTrain:
+            requestedDF = self.trainDF.copy()
+        else:
+            requestedDF = self.testDF.copy()
         if applyTrainWeight:
             requestedDF = requestedDF.mul(self.trainTrainingWeights if getTrain else self.testTrainingWeights,
                                           axis=0)
         if applyLumiWeight:
             requestedDF = requestedDF.mul(self.trainLumiWeights if getTrain else self.testLumiWeights,
                                           axis=0)
-        
+        if self.doTransformation:
+            requestedDF = self.applyTransformation(requestedDF)#, applyTrainWeight=applyTrainWeight, applyLumiWeight=applyLumiWeight)
         if asMatrix:
             return requestedDF[self.trainVariables].values
         else:
@@ -188,10 +220,12 @@ class Data:
 
     @property
     def trainTrainingWeights(self):
+        logging.warning("Mean train training weight: %s",self.trainDF["trainWeight"].mean())
         return self.trainDF["trainWeight"].values
 
     @property
     def testTrainingWeights(self):
+        logging.warning("Mean test training weight: %s",self.testDF["trainWeight"].mean())
         return self.testDF["trainWeight"].values
 
     @property

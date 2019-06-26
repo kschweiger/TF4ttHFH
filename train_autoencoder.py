@@ -157,7 +157,8 @@ def initialize(config):
         selection = config.selection,
         shuffleData = config.ShuffleData,
         shuffleSeed = config.SuffleSeed,
-        lumi = config.lumi
+        lumi = config.lumi,
+        normalizedWeight = True
     )
     
     return allSamples, data
@@ -197,7 +198,7 @@ def trainAutoencoder(config):
     logging.info("Compiling model")
     thisAutoencoder.compileModel()
     
-    trainData = data.getTrainData(applyTrainWeight=True)
+    trainData = data.getTrainData()
     # print(data.trainVariables)
     # print(data.trainDF[data.trainVariables])
     # #print(data.untransfromedDF[data.trainVariables[1]])
@@ -205,7 +206,7 @@ def trainAutoencoder(config):
     # print(trainData)
     # input("Press ret")
     
-    testData = data.getTestData(applyTrainWeight=True)
+    testData = data.getTestData()
 
     trainWeights = data.trainTrainingWeights
     testWeights = data.testTrainingWeights
@@ -214,6 +215,7 @@ def trainAutoencoder(config):
     thisAutoencoder.autoencoder.summary()
     input("Press ret")
     thisAutoencoder.trainModel(trainData,
+                               trainWeights,
                                epochs = config.net.trainEpochs,
                                valSplit = config.net.validationSplit)
 
@@ -234,7 +236,7 @@ def trainAutoencoder(config):
     
     logging.debug("Copying used config to outputfolder")
     shutil.copy2(config.path, config.output+"/usedConfig.cfg")
-    thisAutoencoder.saveModel(config.output, data.conversions)
+    thisAutoencoder.saveModel(config.output, data.transformations)
     
 def parseArgs(args):
     import argparse

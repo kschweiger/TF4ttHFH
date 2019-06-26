@@ -226,16 +226,14 @@ def test_data_transfromation_gauss(mocker, testData):
 
     testPercentage = 0.2
     trainVars = ["Var0", "Var1"]
-    unChangedVar = ["Var2"]
     data = Data(samples, trainVars, testPercentage, transform=True)
 
+    fullDataset = data.getTestData(asMatrix=False)
+    fullDataset = fullDataset.append(data.getTrainData(asMatrix=False))
     for var in trainVars:
-        assert (data.fullDF[var] != testData[var]).all()
-        assert np.isclose([data.fullDF[var].mean()], [0])
-        assert np.isclose([data.fullDF[var].std()], [1])
-
-    for var in unChangedVar:
-        assert (data.fullDF[var] == testData[var]).all()
+        assert (fullDataset[var] != testData[var]).all()
+        assert np.isclose([fullDataset[var].mean()], [0])
+        assert np.isclose([fullDataset[var].std()], [1])
 
 
 def test_data_getTrainTestData_reweighting_train(mocker, testData):

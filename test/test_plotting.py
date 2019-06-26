@@ -15,6 +15,7 @@ import pandas as pd
 import copy
 
 import plotting.checkInputData
+import plotting.compareTransfromedVariables
 from plotting.style import StyleConfig
 import plotting.plotUtils 
 import pytest
@@ -220,6 +221,24 @@ def test_checkInputData_transformDataframe(testDataOne):
             assert np.isclose([transformedDataOne[var].std()],
                               [testDataOne[var].std()])
     
+
+def test_checkInputData_mergeInputs(mocker, testDataOne, testDataTwo):
+    args = plotting.checkInputData.parseArgs(["--input","someFile1","mergeName",
+                                              "--output","some/path/to/output+Prefix",
+                                              "--merge", "someFile2Merge1", "someFile2Merge1",
+                                              "--nGen", "1000", "2000",
+                                              "--xsec", "0.2", "0.4"])
+    
+    mocker.patch("plotting.checkInputData.getDataframes", return_value=[testDataOne.copy(), testDataTwo.copy()])
+    oneVar = testDataOne.columns[0]
+    name, mergedDataset, weightedData = plotting.checkInputData.mergeDatasets(args, list(testDataOne.columns))
+
+    assert name == "Name"
+    assert testDataOne[oneVar][0] * (1000*args.xsec[0]/args.nGen[0]) == weightedData[0][oneVar][0]
+    mergedTestDataset = (testDataOne * (41.5*1000*args.xsec[0]/args.nGen[0])).append(testDataTwo * (41.5*1000*args.xsec[1]/args.nGen[1]))
+    for var in mergedTestDataset.columns:
+        assert (mergedDataset[var] == mergedTestDataset[var]).all()
+    
     
 def test_plotUtils_xyPlot():
     data1 = [1,3,6,14,18,20]
@@ -234,4 +253,21 @@ def test_plotUtils_xyPlot():
     
     assert plotting.plotUtils.make1DPlot(passData, "1dTest", "xName", "yName", ["Data1","Data2"], savePDF=True)
 
-    
+def test_compareTransformedVars_transfrom():
+    data = np.array([range(4),range(4,8),range(8,12)])
+    transformation = {"mu" : { "Var0" : 1,
+                               "Var1" : 2,
+                               "Var2" : 3,
+                               "Var3" : 4},
+                      "std" : {"Var0" : 3,
+                               "Var1" : 2,
+                               "Var2" : 4,
+                               "Var3" : 1}}
+    stdArray = np.array([3,2,4,1])
+    muArray = np.array([1,2,3,4])
+    transfromedData = plotting.compareTransfromedVariables.transform("Gauss",
+                                                                     data,
+                                                                     ["Var0","Var1","Var2","Var3"],
+                                                                     transformation)
+    tansfromExp = (data * stdArray)+muArray
+    assert (transfromedData == tansfromExp).all()
