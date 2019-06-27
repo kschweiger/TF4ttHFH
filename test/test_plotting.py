@@ -195,8 +195,9 @@ def test_checkInputData_getWeights():
             "genWeight" : np.array(size*[2.0]),
             "btagWeight_shape" : np.array(size*[3.0]),
             "weight_CRCorr" : np.array(size*[4.0]),
-            "triggerWeight" : np.array(size*[5.0])}
-    expected = 1.0 * 2.0 * 3.0 * 4.0 * 5.0
+#            "triggerWeight" : np.array(size*[5.0])
+    }
+    expected = 1.0 * 2.0 * 3.0 * 4.0 #* 5.0
     df = pd.DataFrame(data)
     df.set_index(["evt","run","lumi"], inplace=True)
     weights = plotting.checkInputData.getWeights(df)
@@ -225,17 +226,19 @@ def test_checkInputData_transformDataframe(testDataOne):
 def test_checkInputData_mergeInputs(mocker, testDataOne, testDataTwo):
     args = plotting.checkInputData.parseArgs(["--input","someFile1","mergeName",
                                               "--output","some/path/to/output+Prefix",
-                                              "--merge", "someFile2Merge1", "someFile2Merge1",
+                                              "--merge", "someFile2Merge1", "someFile2Merge2",
                                               "--nGen", "1000", "2000",
                                               "--xsec", "0.2", "0.4"])
-    
+
+    lumi = 1.0
     mocker.patch("plotting.checkInputData.getDataframes", return_value=[testDataOne.copy(), testDataTwo.copy()])
     oneVar = testDataOne.columns[0]
-    name, mergedDataset, weightedData = plotting.checkInputData.mergeDatasets(args, list(testDataOne.columns))
+    name, mergedDataset, weightedData = plotting.checkInputData.mergeDatasets(args, list(testDataOne.columns), lumi=lumi)
 
     assert name == "Name"
-    assert testDataOne[oneVar][0] * (1000*args.xsec[0]/args.nGen[0]) == weightedData[0][oneVar][0]
-    mergedTestDataset = (testDataOne * (41.5*1000*args.xsec[0]/args.nGen[0])).append(testDataTwo * (41.5*1000*args.xsec[1]/args.nGen[1]))
+    assert testDataOne[oneVar][0] * (lumi*1000*args.xsec[0]/args.nGen[0]) == weightedData[0][oneVar][0]
+    mergedTestDataset = (testDataOne * (lumi*1000*args.xsec[0]/args.nGen[0])).append(testDataTwo * (lumi*1000*args.xsec[1]/args.nGen[1]))
+
     for var in mergedTestDataset.columns:
         assert (mergedDataset[var] == mergedTestDataset[var]).all()
     

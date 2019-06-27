@@ -49,15 +49,17 @@ class TrainingConfig(ConfigReaderBase):
 
         self.selection = self.setOptionWithDefault("General", "selection", None)
         self.ShuffleData = self.setOptionWithDefault("General", "ShuffleData", True, "bool")
-        self.SuffleSeed = self.setOptionWithDefault("General", "SuffleSeed", None, "int")
+        self.SuffleSeed = self.setOptionWithDefault("General", "SuffleSeed", None, "str")
 
         self.selection = None if self.selection == "None" else self.selection
-        self.SuffleSeed = None if self.SuffleSeed == "None" else self.SuffleSeed
-
+        if self.SuffleSeed is not None:
+            self.SuffleSeed = None if self.SuffleSeed == "None"  else int(self.SuffleSeed)
+        
         netTuple = namedtuple("netTuple", ["defaultActivationEncoder", "defaultActivationDecoder",
                                            "useWeightDecay", "robustAutoencoder", "name",
                                            "hiddenLayers", "inputDimention", "trainEpochs",
-                                           "loss", "validationSplit", "optimizer", "batchSize"])
+                                           "loss", "validationSplit", "optimizer", "batchSize",
+                                           "doEarlyStopping", "StoppingPatience"])
         
         self.net = netTuple(
             defaultActivationEncoder = self.readConfig.get("NeuralNet", "defaultActivationEncoder"),
@@ -71,7 +73,9 @@ class TrainingConfig(ConfigReaderBase):
             loss = self.readConfig.get("NeuralNet", "loss"),
             validationSplit = self.setOptionWithDefault("NeuralNet", "validationSplit", 0.25, "float"),
             optimizer =  self.readConfig.get("NeuralNet", "optimizer"),
-            batchSize = self.setOptionWithDefault("NeuralNet", "batchSize", 128, "int")
+            batchSize = self.setOptionWithDefault("NeuralNet", "batchSize", 128, "int"),
+            doEarlyStopping = self.setOptionWithDefault("NeuralNet", "doEarlyStopping", False, "bool"),
+            StoppingPatience =  self.setOptionWithDefault("NeuralNet", "patience", 0, "int")
         )
 
         self.nHiddenLayers = self.net.hiddenLayers
@@ -185,7 +189,7 @@ def trainAutoencoder(config, useDevice, batch=False):
         encoderActivation = thisEncoderActivation,
         decoderActivation = thisDecoderActivation,
         loss = config.net.loss,
-        metric = ['mae',"msle","mse"],
+        metric = ['mae',"msle","acc"],
         batchSize = config.net.batchSize
     )
 
@@ -217,9 +221,12 @@ def trainAutoencoder(config, useDevice, batch=False):
         input("Press ret")
     thisAutoencoder.trainModel(trainData,
                                trainWeights,
+                               config.output,
                                epochs = config.net.trainEpochs,
                                valSplit = config.net.validationSplit,
-                               thisDevice = "/device:{0}".format(useDevice))
+                               thisDevice = "/device:{0}".format(useDevice),
+                               earlyStopping = (args.stopEarly or config.net.doEarlyStopping),
+                               patience = config.net.StoppingPatience)
 
     logging.info("Evaluation....")
     thisAutoencoder.evalModel(testData, testWeights, data.trainVariables, config.output, True, True)
@@ -270,6 +277,10 @@ def parseArgs(args):
     )
     argumentparser.add_argument(
         "--batchMode",
+        action="store_true",
+    )
+    argumentparser.add_argument(
+        "--stopEarly",
         action="store_true",
     )
     return argumentparser.parse_args(args)

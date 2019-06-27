@@ -1,4 +1,4 @@
-![Coverage](https://img.shields.io/badge/pytest--cov-74%25-yellow.svg?longCache=true&style=flat-square)
+![Coverage](https://img.shields.io/badge/pytest--cov-70%25-yellow.svg?longCache=true&style=flat-square)
 ![Tests](https://img.shields.io/badge/Test%20passing-true-green.svg?longCache=true&style=flat-square)
 # TF4ttHFH
 
@@ -104,6 +104,7 @@ In the config the follow parameters of the network can be set:
 - Default settings for activations can be set with `defaultActivationEncoder` and `defaultActivationDecoder`
 - This can be overwritten for the encoder, decoder and each pair of hidden layers
 - It is required to set an encoder dimention (the "bottleneck") 
+- EarlyStopping by minimum loss can be activated with `doEarlyStopping` and the patience can be set with the `patience` parameter
 - If hidden layers are set in the network configuration a section `[HiddenLayer_X]` (where `x` is the hidden startign at 0) for each pair of layers is required in the config. There the dimention has to be set and activation functions can be set
 - For each sample set in the general part of the config a section with the same name is expected. It has to set `input`, `label` and `datatype` and can set `xsec` and `nGen`.
 

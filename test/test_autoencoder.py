@@ -154,14 +154,17 @@ def test_autoencoder_compileModel():
     
 def test_autoencoder_fitModel_exceptions():
     testDataArray = np.ndarray(shape=(20,5))
+    testWeightDataArray = np.ndarray(shape=(20,1))
     autoencoder = Autoencoder("ShallowAutoEncoder", 30, 5)
     autoencoder.setOptimizer(optimizerName="rmsprop")
     autoencoder.buildModel()
     with pytest.raises(RuntimeError):
-        autoencoder.trainModel(trainingData=testDataArray)
+        autoencoder.trainModel(trainingData=testDataArray, trainingWeights=testWeightDataArray, outputFolder="SomeFolder")
     autoencoder.compileModel()
     with pytest.raises(TypeError):
-        autoencoder.trainModel(trainingData = None)
+        autoencoder.trainModel(trainingData = None, trainingWeights=testWeightDataArray, outputFolder="SomeFolder")
+    with pytest.raises(TypeError):
+        autoencoder.trainModel(trainingData = testDataArray,  trainingWeights=None, outputFolder="SomeFolder")
 
 def test_autoencoder_evalModel_exceptions():
     testDataArray = np.ndarray(shape=(20,5))

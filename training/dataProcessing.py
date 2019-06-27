@@ -62,7 +62,6 @@ class Sample:
         else:
             df = df.assign(lumiWeight=lambda x: 1.0)
         self.data = df
-        print(df["jets_pt_0"])
         return True
 
     def getLabelTuple(self):

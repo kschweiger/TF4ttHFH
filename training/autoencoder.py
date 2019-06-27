@@ -1,6 +1,7 @@
 import inspect
 import logging
 import json
+import os
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from keras.models import Model, load_model
 from keras import regularizers, losses, callbacks, optimizers, metrics
 from keras.utils import plot_model, print_summary
 from tensorflow import Session, device
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from training.trainUtils import r_square
 import plotting.plotUtils
@@ -302,24 +304,40 @@ class Autoencoder:
 
         return True
 
-    def trainModel(self, trainingData, trainingWeights, epochs=100, valSplit=0.25, thisDevice="/device:CPU:0"):
+    def trainModel(self, trainingData, trainingWeights, outputFolder, epochs=100, valSplit=0.25, thisDevice="/device:CPU:0", earlyStopping=False, patience=0):
         """ Train model with setting set by attributes and argements """
         if not self.modelCompiled:
             raise RuntimeError("Model not compiled")
         if not isinstance(trainingData, np.ndarray):
             raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingData))
-        
+        if not isinstance(trainingWeights, np.ndarray):
+            raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingWeights))
         logging.info("Starting training of the autoencoder %s", self.autoencoder)
         logging.warning("Will start training on %s", thisDevice)
+        
+        allCallbacks = []
+        #checkpoint = ModelCheckpoint("{0}/best_model.h5py".format(outputFolder), monitor='val_loss', mode='min', verbose=1)
+        #allCallbacks.append(checkpoint)
+        if earlyStopping:
+            logging.warning("Adding early stopping by validation loss")
+            logging.debug("Variable paramters: Patience : %s", patience)
+            earlyStoppingLoss = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=patience, restore_best_weights=True)
+            allCallbacks.append(earlyStoppingLoss)        	
+        if not allCallbacks:
+            allCallbacks = None
         with device(thisDevice):
             self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
                                                      batch_size = self.batchSize,
                                                      epochs = epochs,
-                                                     shuffle = True,
-                                                     callbacks = None, #May implement loss history at some point
+                                                     shuffle = True,                                                     
                                                      validation_split = valSplit,
-                                                     sample_weight = trainingWeights)
+                                                     sample_weight = trainingWeights,
+                                                     callbacks = allCallbacks)
 
+        #logging.debug("Loading best model: %s/best_model.h5py", outputFolder)
+        #self.autoencoder = load_model("{0}/best_model.h5py".format(outputFolder))
+        #logging.debug("Removing file for best model: %s/best_model.h5py", outputFolder)
+        #os.remove("{0}/best_model.h5py".format(outputFolder))
         self.modelTrained = True
         
         return True
@@ -356,7 +374,7 @@ class Autoencoder:
                 logging.debug("Plotting metric %s", metric)
                 metricTrain = np.array(self.trainedModel.__dict__["history"][metric])
                 metricVal = np.array(self.trainedModel.__dict__["history"]["val_"+metric])
-                xAxis = np.array(list(range(1, self.trainedModel.__dict__['params']["epochs"]+1)))
+                xAxis = np.array(self.trainedModel.__dict__["epoch"])
                 plotVals = [(xAxis, metricTrain), (xAxis, metricVal)]
                 
                 plotting.plotUtils.make1DPlot(plotVals,

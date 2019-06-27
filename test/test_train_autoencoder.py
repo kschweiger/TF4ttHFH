@@ -95,7 +95,9 @@ def mockExpectationConfig():
                                 "epochs" : 10,
                                 "validationSplit" : 0.3,
                                 "loss" : "RMS",
-                                "batchSize" : 16}
+                                "batchSize" : 16,
+                                "doEarlyStopping" : True,
+                                "patience" : 25}
     expectation["Decoder"] = {"activation" : "linear"}
     expectation["Encoder"] = {"dimention" : 5,
                               "activation" : "tanh"} 
@@ -149,6 +151,9 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.validationSplit == 0.25
     assert testConfig.net.optimizer == configExpectationRequired["NeuralNet"]["optimizer"]
     assert testConfig.net.batchSize == 128
+    assert testConfig.net.doEarlyStopping == False
+    assert testConfig.net.StoppingPatience == 0
+
     
     for sample in expectedSampels:
         testConfig.sampleInfos[sample].input == configExpectationRequired[sample]["input"]
@@ -198,6 +203,9 @@ def test_config_allplusHidden(mocker, mockExpectationConfig):
     assert testConfig.net.validationSplit == configExpectation["NeuralNet"]["validationSplit"]
     assert testConfig.net.optimizer == configExpectation["NeuralNet"]["optimizer"]
     assert testConfig.net.batchSize == int(configExpectation["NeuralNet"]["batchSize"])
+    assert testConfig.net.doEarlyStopping == configExpectation["NeuralNet"]["doEarlyStopping"]
+    assert testConfig.net.StoppingPatience == int(configExpectation["NeuralNet"]["patience"])
+
     
     for sample in expectedSampels:
         testConfig.sampleInfos[sample].input == configExpectation[sample]["input"]

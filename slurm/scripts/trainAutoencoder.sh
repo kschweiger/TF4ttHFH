@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#SBATCH --job-name=test_job 
+#SBATCH --job-name=trainAutoencoder
 #SBATCH --account=gpu_gres               # to access gpu resources
 #SBATCH --partition=gpu                                           
 #SBATCH --nodes=1                        # request to run job on single node                                       
