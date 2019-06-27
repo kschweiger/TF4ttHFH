@@ -163,7 +163,7 @@ def initialize(config):
     
     return allSamples, data
 
-def trainAutoencoder(config):
+def trainAutoencoder(config, useDevice, batch=False):
     logging.debug("Output folder")
     checkNcreateFolder(config.output, onlyFolder=True)
     
@@ -213,11 +213,13 @@ def trainAutoencoder(config):
 
     logging.info("Fitting model")
     thisAutoencoder.autoencoder.summary()
-    input("Press ret")
+    if not batch:
+        input("Press ret")
     thisAutoencoder.trainModel(trainData,
                                trainWeights,
                                epochs = config.net.trainEpochs,
-                               valSplit = config.net.validationSplit)
+                               valSplit = config.net.validationSplit,
+                               thisDevice = "/device:{0}".format(useDevice))
 
     logging.info("Evaluation....")
     thisAutoencoder.evalModel(testData, testWeights, data.trainVariables, config.output, True, True)
@@ -259,10 +261,21 @@ def parseArgs(args):
         help="configuration file",
         required=True
     )
+    argumentparser.add_argument(
+        "--device",
+        action="store",
+        type=str,
+        help="configuration file",
+        default="CPU:0"
+    )
+    argumentparser.add_argument(
+        "--batchMode",
+        action="store_true",
+    )
     return argumentparser.parse_args(args)
 
 def main(args, config):
-    trainAutoencoder(config)
+    trainAutoencoder(config, args.device, batch=args.batchMode)
 
 
 if __name__ == "__main__":

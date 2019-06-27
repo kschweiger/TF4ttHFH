@@ -8,7 +8,7 @@ from keras.layers import Input, Dense
 from keras.models import Model, load_model
 from keras import regularizers, losses, callbacks, optimizers, metrics
 from keras.utils import plot_model, print_summary
-from tensorflow import Session
+from tensorflow import Session, device
 
 from training.trainUtils import r_square
 import plotting.plotUtils
@@ -218,31 +218,48 @@ class Autoencoder:
         #Build DeepNetwork
         if self.nHidden > 0:
             encoder = hiddenEncoderLayers[0](inputLayer)
+            logging.debug("Added encoder layer %s", encoder)
             for layer in hiddenEncoderLayers.keys():
                 if layer == 0:
                     continue
                 encoder = hiddenEncoderLayers[layer](encoder)
+                logging.debug("Added encoder layer %s", encoder)
             encoder = encoderLayer(encoder)
+            logging.debug("Added bottlenck layer %s", encoder)
             decoder = hiddenDecoderLayers[0](encoder)
+            logging.debug("Added decoder layer %s", decoder)
             for layer in hiddenDecoderLayers.keys():
                 if layer == 0:
                     continue
-                decoder = hiddenEncoderLayers[layer](decoder)
+                decoder = hiddenDecoderLayers[layer](decoder)
+                logging.debug("Added decoder layer %s", decoder)
             decoder = decoderLayer(decoder)
+            logging.debug("Added final decoder layer %s", decoder)
         #Build shallow network
         else:
             encoder = encoderLayer(inputLayer)
             decoder = decoderLayer(encoder)
 
+        logging.debug("Setting autoencoder")
         self.autoencoder = Model(inputLayer, decoder)
-
+        
+        logging.debug("Setting encoder")
         self.encoder = Model(inputLayer, encoder)
         
         encodedInput = Input(shape=(self.encoderDimention,))
         # print(self.autoencoder.layers)
         if self.nHidden > 0:
-            decoderLayer_ = self.autoencoder.layers[-2](encodedInput)
-            decoderLayer_ = self.autoencoder.layers[-1](decoderLayer_)
+            logging.debug("Setting decoder")
+            inputSet = False
+            for i in list(range(1,self.nHidden+2))[::-1]:
+                if not inputSet:
+                    logging.debug("Adding layer %s - %s as decoder input", -i, self.autoencoder.layers[-i])
+                    decoderLayer_ = self.autoencoder.layers[-i](encodedInput)
+                    inputSet = True
+                    logging.debug("Set decoderLayer_ %s", decoderLayer_)
+                else:
+                    decoderLayer_ = self.autoencoder.layers[-i](decoderLayer_)
+                    logging.debug("Set decoderLayer_ %s", decoderLayer_)
             self.decoder = Model(encodedInput, decoderLayer_)
         else:
             decoderLayer_ = self.autoencoder.layers[-1](encodedInput)
@@ -285,7 +302,7 @@ class Autoencoder:
 
         return True
 
-    def trainModel(self, trainingData, trainingWeights, epochs=100, valSplit=0.25):
+    def trainModel(self, trainingData, trainingWeights, epochs=100, valSplit=0.25, thisDevice="/device:CPU:0"):
         """ Train model with setting set by attributes and argements """
         if not self.modelCompiled:
             raise RuntimeError("Model not compiled")
@@ -293,13 +310,15 @@ class Autoencoder:
             raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingData))
         
         logging.info("Starting training of the autoencoder %s", self.autoencoder)
-        self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
-                                                 batch_size = self.batchSize,
-                                                 epochs = epochs,
-                                                 shuffle = True,
-                                                 callbacks = None, #May implement loss history at some point
-                                                 validation_split = valSplit,
-                                                 sample_weight = trainingWeights)
+        logging.warning("Will start training on %s", thisDevice)
+        with device(thisDevice):
+            self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
+                                                     batch_size = self.batchSize,
+                                                     epochs = epochs,
+                                                     shuffle = True,
+                                                     callbacks = None, #May implement loss history at some point
+                                                     validation_split = valSplit,
+                                                     sample_weight = trainingWeights)
 
         self.modelTrained = True
         
@@ -326,7 +345,9 @@ class Autoencoder:
         # print("Prediction decoder layer")
         # print(predictDecoder)
 
-
+        for iVar, var in enumerate(variables):
+            logging.info("Mean %s - input %s | prediction %s",var, testData[:,iVar].mean(), predictDecoder[:,iVar].mean())
+            logging.info("Std %s - input %s | prediction %s",var, testData[:,iVar].std(), predictDecoder[:,iVar].std())
 
         if plotMetics:
             logging.info("Saving epoch metrics")
