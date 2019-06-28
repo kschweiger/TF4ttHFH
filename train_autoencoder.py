@@ -19,6 +19,8 @@ from plotting.plotUtils import make1DHistoPlot
 
 from utils.utils import initLogging, checkNcreateFolder
 
+from tensorflow import Session, device
+
 class TrainingConfig(ConfigReaderBase):
     """
     Containter for setting from the config file. 
@@ -170,6 +172,9 @@ def initialize(config):
 def trainAutoencoder(config, useDevice, batch=False):
     logging.debug("Output folder")
     checkNcreateFolder(config.output, onlyFolder=True)
+    logging.debug("Copying used config to outputfolder")
+    shutil.copy2(config.path, config.output+"/usedConfig.cfg")
+
     
     logging.info("Initializing samples and data")
     allSample, data = initialize(config)
@@ -224,7 +229,7 @@ def trainAutoencoder(config, useDevice, batch=False):
                                config.output,
                                epochs = config.net.trainEpochs,
                                valSplit = config.net.validationSplit,
-                               thisDevice = "/device:{0}".format(useDevice),
+                               thisDevice = "",
                                earlyStopping = (args.stopEarly or config.net.doEarlyStopping),
                                patience = config.net.StoppingPatience)
 
@@ -243,8 +248,7 @@ def trainAutoencoder(config, useDevice, batch=False):
     
 
     
-    logging.debug("Copying used config to outputfolder")
-    shutil.copy2(config.path, config.output+"/usedConfig.cfg")
+
     thisAutoencoder.saveModel(config.output, data.transformations)
     
 def parseArgs(args):
@@ -286,7 +290,8 @@ def parseArgs(args):
     return argumentparser.parse_args(args)
 
 def main(args, config):
-    trainAutoencoder(config, args.device, batch=args.batchMode)
+    with device("/device:{0}".format(args.device)):
+        trainAutoencoder(config, "", batch=args.batchMode)
 
 
 if __name__ == "__main__":

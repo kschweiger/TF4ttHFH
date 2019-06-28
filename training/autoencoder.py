@@ -325,14 +325,14 @@ class Autoencoder:
             allCallbacks.append(earlyStoppingLoss)        	
         if not allCallbacks:
             allCallbacks = None
-        with device(thisDevice):
-            self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
-                                                     batch_size = self.batchSize,
-                                                     epochs = epochs,
-                                                     shuffle = True,                                                     
-                                                     validation_split = valSplit,
-                                                     sample_weight = trainingWeights,
-                                                     callbacks = allCallbacks)
+            
+        self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
+                                                 batch_size = self.batchSize,
+                                                 epochs = epochs,
+                                                 shuffle = True,                                                     
+                                                 validation_split = valSplit,
+                                                 sample_weight = trainingWeights,
+                                                 callbacks = allCallbacks)
 
         #logging.debug("Loading best model: %s/best_model.h5py", outputFolder)
         #self.autoencoder = load_model("{0}/best_model.h5py".format(outputFolder))

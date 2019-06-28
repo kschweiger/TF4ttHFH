@@ -7,7 +7,7 @@
 ##SBATCH --ntasks=10                     # request 10 CPU's (t3gpu01/02: balance between CPU and GPU : 5CPU/1GPU)      
 #SBATCH --gres=gpu:1                     # request  for two GPU's on machine, this is total  amount of GPUs for job        
 ##SBATCH --mem=4000M                     # memory (per node)
-#SBATCH --time=0-00:30                   # time  in format DD-HH:MM
+#SBATCH --time=0-02:00                   # time  in format DD-HH:MM
 #SBATCH -e output/trainAutoencoder/gpu-%A.err
 #SBATCH -o output/trainAutoencoder/gpu-%A.out
 
