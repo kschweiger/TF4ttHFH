@@ -184,7 +184,14 @@ def evalAutoencoder(config):
 
     with open("{0}/evalDataArrays.pkl".format(config.plottingOutput), "wb") as pickleOut:
         pickle.dump(data2Pickle, pickleOut)
-        
+
+    with open("{0}/testDataArrays.pkl".format(config.trainingOutput), "rb") as testPickle:
+        testDataTraining = pickle.load(testPickle)
+
+    inputWeights.append(testDataTraining["testWeights"])
+    inputDatas.append(testDataTraining["testInputData"])
+    reconstMetricTest, reconstErrTest = thisAutoencoder.getReconstructionErr(testDataTraining["testInputData"])
+    reconstErrList.append(reconstErrTest)
     for iVar, var in enumerate(config.trainingConifg.trainingVariables):
         make1DHistoPlot([inputDatas[i][:,iVar] for i in range(len(inputDatas))],
                         inputWeights,

@@ -47,6 +47,8 @@ class ConfigReaderBase:
                 return self.readConfig.getint(section, option)
             elif getterType == "bool":
                 return self.readConfig.getboolean(section, option)
+            elif getterType == "intlist":
+                return [int(x) for x in self.getList(self.readConfig.get(section, option))]
             else:
                 return self.readConfig.get(section, option)
         else:

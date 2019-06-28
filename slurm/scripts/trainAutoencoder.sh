@@ -14,4 +14,4 @@
 echo CUDA_VISIBLE_DEVICES : $CUDA_VISIBLE_DEVICES
 cd $TF4TTHFHDIR
 source activate TFGPU
-python train_autoencoder.py --config data/autoencoder_Run2Dev_v1_test1.cfg --device GPU:$CUDA_VISIBLE_DEVICES --batchMode
+python train_autoencoder.py --config data/autoencoder_Run2Dev_v1_test2.cfg --device GPU:$CUDA_VISIBLE_DEVICES --batchMode

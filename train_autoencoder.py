@@ -46,6 +46,7 @@ class TrainingConfig(ConfigReaderBase):
 
         self.output = self.readConfig.get("General", "output")
         self.trainingVariables = self.getList(self.readConfig.get("General", "trainingVariables"))
+        logging.debug("Got %s input variables", len(self.trainingVariables))
         self.lumi = self.setOptionWithDefault("General", "lumi", 1.0, "float")
         self.testPercent = self.readConfig.getfloat("General", "testPercentage")
         self.samples = self.getList(self.readConfig.get("General", "samples"))
@@ -138,7 +139,7 @@ def buildActivations(config):
         else:
             return (encoderActivations, decoderActivations)
 
-def initialize(config):
+def initialize(config, incGenWeights=False):
     """ Initialze samples and data  """
     #Get samples
     allSamples = []
@@ -165,7 +166,8 @@ def initialize(config):
         shuffleData = config.ShuffleData,
         shuffleSeed = config.SuffleSeed,
         lumi = config.lumi,
-        normalizedWeight = True
+        normalizedWeight = True,
+        includeGenWeight = incGenWeights
     )
     
     return allSamples, data

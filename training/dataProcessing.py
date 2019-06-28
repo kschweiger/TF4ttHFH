@@ -6,6 +6,7 @@ K. Schweiger, 2019
 
 import logging
 
+from keras.utils import to_categorical
 from sklearn.utils import shuffle
 import pandas as pd
 import numpy as np
@@ -29,7 +30,7 @@ class Sample:
         self.data = None
         self.nEvents = -1
 
-    def loadDataframe(self, selection=None, lumi=1.0, normalizedWeight=False):
+    def loadDataframe(self, selection=None, lumi=1.0, normalizedWeight=False, includeGenWeight=False):
         """ Function for loading the data from the file and adding combined weight variables to dataframe"""
         logging.info("Loading dartaframe from fole %s", self.inFile)
         df = pd.read_hdf(self.inFile)
@@ -48,10 +49,17 @@ class Sample:
         ##### Add combined wightes to the dataframe
         # It is expected that all these weights are present in the dataset- even if they are all 1.0
         logging.warning("Trigger weight disabled")
-        df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
+        if includeGenWeight:
+            logging.warning("Will include xsec and nGen in train weight")
+            df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * self.xsec * (1/self.nGen))# * x.triggerWeight)
+        else:
+            df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
 
+        df = df.assign(eventWeightUnNorm=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
+        logging.debug("Sample %s weight mean=%s", self.label, df["eventWeight"].mean())
         weightSum = sum(df["eventWeight"].values)
         if normalizedWeight:
+            logging.debug("WeightSum=%s", weightSum)
             df = df.assign(trainWeight=lambda x: x.eventWeight/weightSum)
         else:
             df = df.assign(trainWeight=lambda x: x.eventWeight)
@@ -85,14 +93,15 @@ class Data:
       ValueError : If testPercent is > 1
       RuntimeError : If an invalid trainig variable is passed
     """
-    def __init__(self, samples, trainVariables, testPercent, transform=True, selection=None, shuffleData=False, shuffleSeed=None, lumi=41.5, normalizedWeight=False):
+    def __init__(self, samples, trainVariables, testPercent, transform=True, selection=None, shuffleData=False,
+                 shuffleSeed=None, lumi=41.5, normalizedWeight=False, includeGenWeight=False):
         if testPercent > 1.0:
             raise ValueError("testPercent is required to be less than 1. Passed value = %s"%testPercent)
         trainDataframes = []
         classes = {}
         for sample in samples:
             logging.info("Loading dataframe for sample %s (Label: %s, labelID: %s, isData: %s)", sample, sample.label, sample.labelID, sample.isData)
-            sample.loadDataframe(selection=selection, lumi=lumi, normalizedWeight=normalizedWeight)
+            sample.loadDataframe(selection=selection, lumi=lumi, normalizedWeight=normalizedWeight, includeGenWeight=includeGenWeight)
             trainDataframes.append(sample.data)
             labelName, labelID = sample.getLabelTuple()
             classes[labelName] = labelID
@@ -102,7 +111,9 @@ class Data:
         logging.debug("Number of events after concat = %s", df.shape[0])
 
         if normalizedWeight:
+            logging.debug("Scaling trainWeight by Events/nSamples - %s,%s", df.shape[0],len(samples))
             df["trainWeight"] = df["trainWeight"]*df.shape[0]/len(samples)
+            logging.debug("Train weight mean= %s, std=%s", df["trainWeight"].mean(), df["trainWeight"].std())
         
         del trainDataframes
 
@@ -237,9 +248,17 @@ class Data:
 
     #Maybe also needed as dataframes? TBD
     @property
-    def trainLables(self):
+    def trainLabels(self):
         return self.trainDF["labelID"].values
 
     @property
-    def testLables(self):
+    def testLabels(self):
         return self.testDF["labelID"].values
+
+    @property
+    def trainLabelsCat(self):
+        return to_categorical(self.trainDF["labelID"].values)
+
+    @property
+    def testLabelsCat(self):
+        return to_categorical(self.testDF["labelID"].values)
