@@ -7,7 +7,7 @@ import numpy as np
 
 from keras.layers import Input, Dense
 from keras.models import Model, load_model
-from keras import regularizers, losses, callbacks, optimizers, metrics
+from keras import regularizers, losses, callbacks, optimizers, metrics, initializers
 from keras.utils import plot_model, print_summary
 from tensorflow import Session, device
 from keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -102,6 +102,10 @@ class Autoencoder:
         self.modelTrained = False
 
         self.trainedModel = None
+
+        self.LayerInitializerKernel = "random_uniform"
+        self.LayerInitializerBias = "zeros"
+        
         
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
@@ -134,6 +138,8 @@ class Autoencoder:
             optimizerFunc = optimizers.RMSprop
         elif kwargs["optimizerName"] == "adagrad":
             optimizerFunc = optimizers.Adagrad
+        elif kwargs["optimizerName"] == "adam":
+            optimizerFunc = optimizers.Adam
         else:
             raise NotImplementedError("Optiizer %s not implemented"%kwargs["optimizerName"])
         defaultSig = self._parseSignature(inspect.signature(optimizerFunc))
@@ -153,6 +159,9 @@ class Autoencoder:
             self.optimizer = optimizers.RMSprop(lr=useSig["lr"], rho=useSig["rho"], epsilon=useSig["epsilon"], decay=useSig["decay"])
         elif kwargs["optimizerName"] == "adagrad":
             self.optimizer =optimizers.Adagrad(lr=useSig["lr"], epsilon=useSig["epsilon"], decay=useSig["decay"])
+        elif kwargs["optimizerName"] == "adam":
+            self.optimizer =optimizers.Adam(lr=useSig["lr"], beta_1=useSig["beta_1"], beta_2=useSig["beta_2"],
+                                            epsilon=useSig["epsilon"], decay=useSig["decay"], amsgrad=useSig["amsgrad"])
         else:
             raise RuntimeError("This should certainly not happen!")
 
@@ -168,13 +177,15 @@ class Autoencoder:
     def buildModel(self, plot=False):
         """ Building the network """
         kernelRegulizer = regularizers.l2(self.weightDecayLambda) if self.useWeightDecay else regularizers.l1(0.)
-
+        
         inputLayer = Input(shape=(self.inputDimention,))
 
         hiddenEncoderLayers = {}
         layersSet = 0
         for iLayer in range(self.nHidden):
             hiddenEncoderLayers[iLayer] =  Dense(self.hiddenLayerDimention[iLayer],
+                                                 kernel_initializer=self.LayerInitializerKernel,
+                                                 bias_initializer=self.LayerInitializerBias,
                                                  activation=self.hiddenLayerEncoderActivation[iLayer],
                                                  kernel_regularizer=kernelRegulizer,
                                                  name = "hiddenEncoderLayer_"+str(iLayer))
@@ -185,6 +196,8 @@ class Autoencoder:
             logging.info("  regualizer %s | name %s", kernelRegulizer,"hiddenEncoderLayer_"+str(iLayer))
             layersSet += 1
         encoderLayer = Dense(self.encoderDimention,
+                             kernel_initializer=self.LayerInitializerKernel,
+                             bias_initializer=self.LayerInitializerBias,                    
                              activation=self.encoderActivation,
                              kernel_regularizer=kernelRegulizer,
                              name = "encoderLayer")
@@ -197,9 +210,11 @@ class Autoencoder:
         hiddenDecoderLayers = {}
         for iLayer in range(self.nHidden):
             hiddenDecoderLayers[iLayer] = Dense(self.hiddenLayerDimention[::-1][iLayer],
-                                                 activation=self.hiddenLayerDecoderActivation[iLayer],
-                                                 kernel_regularizer=kernelRegulizer,
-                                                 name = "hiddenDecoderLayer_"+str(iLayer))
+                                                kernel_initializer=self.LayerInitializerKernel,
+                                                bias_initializer=self.LayerInitializerBias,
+                                                activation=self.hiddenLayerDecoderActivation[iLayer],
+                                                kernel_regularizer=kernelRegulizer,
+                                                name = "hiddenDecoderLayer_"+str(iLayer))
             logging.info("Setting hidden decoder layer %s with", layersSet)
             logging.info("  Dimention %s | Activation %s",
                          self.hiddenLayerDimention[::-1][iLayer],
@@ -207,6 +222,8 @@ class Autoencoder:
             logging.info("  regualizer %s | name %s", kernelRegulizer,"hiddenDecoderLayer_"+str(iLayer))
             layersSet += 1
         decoderLayer = Dense(self.reconstructionDimention,
+                             kernel_initializer=self.LayerInitializerKernel,
+                             bias_initializer=self.LayerInitializerBias,
                              activation=self.decoderActivation,
                              kernel_regularizer=kernelRegulizer,
                              name = "decoderLayer")
@@ -288,8 +305,8 @@ class Autoencoder:
         logging.info("  Metrics: %s", self.metrics)
         print(r_square)        
         self.autoencoder.compile(
-            #optimizer=self.optimizer,
-            optimizer="adam",
+            optimizer=self.optimizer,
+            #optimizer="adam",
             #loss="mse",
             loss=self.lossFunction,
             metrics=self.metrics
@@ -342,7 +359,7 @@ class Autoencoder:
         
         return True
 
-    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False, plotMetics=False, splitNetwork=True, plotPostFix=""):
+    def evalModel(self, testData, testWeights, variables, outputFolder, plotPrediction=False, plotMetics=False, splitNetwork=True, saveData=False, plotPostFix=""):
         """ Evaluate trained model """
         if not self.modelTrained:
             raise RuntimeError("Model not yet trainede")
@@ -396,7 +413,6 @@ class Autoencoder:
                                                    binRange = (-10, 10),
                                                    varAxisName = var,
                                                    legendEntries = thisLegend)
-
         return predictDecoder
     
     def saveModel(self, outputFolder, transfromations=None):

@@ -9,6 +9,7 @@ import shutil
 from collections import namedtuple
 
 import numpy as np
+import pickle
 
 from utils.ConfigReader import ConfigReaderBase
 from training.dataProcessing import Sample, Data
@@ -19,7 +20,7 @@ from plotting.plotUtils import make1DHistoPlot
 
 from utils.utils import initLogging, checkNcreateFolder
 
-from tensorflow import Session, device
+from tensorflow import Session, device, ConfigProto
 
 class TrainingConfig(ConfigReaderBase):
     """
@@ -200,7 +201,8 @@ def trainAutoencoder(config, useDevice, batch=False):
 
     logging.info("Setting optimizer")
     logging.debug("In config: %s",config.net.optimizer)
-    thisAutoencoder.setOptimizer(optimizerName=config.net.optimizer)
+    thisAutoencoder.optimizer = config.net.optimizer
+    #thisAutoencoder.setOptimizer(optimizerName=config.net.optimizer)
 
     logging.info("Building model")
     thisAutoencoder.buildModel()
@@ -233,8 +235,9 @@ def trainAutoencoder(config, useDevice, batch=False):
                                earlyStopping = (args.stopEarly or config.net.doEarlyStopping),
                                patience = config.net.StoppingPatience)
 
+
     logging.info("Evaluation....")
-    thisAutoencoder.evalModel(testData, testWeights, data.trainVariables, config.output, True, True)
+    predictedData = thisAutoencoder.evalModel(testData, testWeights, data.trainVariables, config.output, True, True)
     logging.info("Getting reco error for loss")
     reconstMetric, reconstErrTest = thisAutoencoder.getReconstructionErr(testData)
     reconstMetric, reconstErrTrain = thisAutoencoder.getReconstructionErr(trainData)
@@ -245,7 +248,14 @@ def trainAutoencoder(config, useDevice, batch=False):
                     "Loss function",
                     ["Test Sample", "Training Sample"],
                     normalized=True)
-    
+    logging.info("Saving testData and weights")
+    data2Pickle = { "variables" : config.trainingVariables,
+                    "testInputData" : testData,
+                    "testWeights" : testWeights,
+                    "testPredictionData" : predictedData}
+
+    with open("{0}/testDataArrays.pkl".format(config.output), "wb") as pickleOut:
+        pickle.dump(data2Pickle, pickleOut)
 
     
 
@@ -290,8 +300,7 @@ def parseArgs(args):
     return argumentparser.parse_args(args)
 
 def main(args, config):
-    with device("/device:{0}".format(args.device)):
-        trainAutoencoder(config, "", batch=args.batchMode)
+    trainAutoencoder(config, "", batch=args.batchMode)
 
 
 if __name__ == "__main__":
