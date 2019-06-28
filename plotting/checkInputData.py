@@ -338,7 +338,7 @@ def parseArgs(args):
     
     return argumentparser.parse_args(args)
 
-def mergeDatasets(args, variables):
+def mergeDatasets(args, variables, lumi=41.5):
     assert len(args.merge) == len(args.xsec)
     assert len(args.merge) == len(args.nGen)
     
@@ -351,7 +351,7 @@ def mergeDatasets(args, variables):
     for iDataset, dataFrame in enumerate(allDataFrames):
         thisXSec = args.xsec[iDataset]
         thisNGen = args.nGen[iDataset]
-        sf = (41.5*1000*thisXSec*1)/thisNGen
+        sf = (lumi*1000*thisXSec*1)/thisNGen
         logging.debug("Rewighting dataframe %s with %s entries", iDataset, dataFrame.shape[0])
         logging.debug("Weighting df %s with xsec %s and nGen %s -- SF=%s",iDataset, thisXSec, thisNGen, sf)
 

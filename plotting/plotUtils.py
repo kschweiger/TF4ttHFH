@@ -50,8 +50,8 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
         plt.savefig(output+".pdf")
 
 
-    plt.close(fig)
-
+    plt.close('all')
+    
     return True
 
 
