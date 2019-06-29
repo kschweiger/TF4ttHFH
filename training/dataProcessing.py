@@ -55,7 +55,7 @@ class Sample:
         else:
             df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
 
-        df = df.assign(eventWeightUnNorm=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
+        #df = df.assign(eventWeightUnNorm=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
         logging.debug("Sample %s weight mean=%s", self.label, df["eventWeight"].mean())
         weightSum = sum(df["eventWeight"].values)
         if normalizedWeight:

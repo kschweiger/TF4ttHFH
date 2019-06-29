@@ -1,4 +1,4 @@
-![Coverage](https://img.shields.io/badge/pytest--cov-70%25-yellow.svg?longCache=true&style=flat-square)
+![Coverage](https://img.shields.io/badge/pytest--cov-66%25-yellow.svg?longCache=true&style=flat-square)
 ![Tests](https://img.shields.io/badge/Test%20passing-true-green.svg?longCache=true&style=flat-square)
 # TF4ttHFH
 
@@ -97,6 +97,7 @@ The proprocessed data is is loaded in the beginning of the training. Currently t
 
 ### Autoencoder
 In the config the follow parameters of the network can be set:
+
 - Regularization with weight decay - `useWeightDecay`
 - The optimizer used in the training - `optimizer` (currently supported are `rmsprop`, `adamadagrad`)
 - Loss function - `loss` (currently supported are `MSE`, `LOGCOSH`, `MEA`) 
@@ -124,6 +125,30 @@ The output folder set in the config will be created if not present on the FS and
 
 #### Evaluation
 Evaluating a training done with `train_autoencoder.py` (it requires some of the output files) can be done with the `eval_autoencoder.py` script. It requires only a config to be passed with the `--config` flag.
+
+### Classification DNN
+In the config the follow parameters of the network can be set:
+
+- Regularization with weight decay - `useWeightDecay`
+- The optimizer used in the training - `optimizer` (currently supported are `rmsprop`, `adamadagrad`) - Setting the `optimizer` directly and not running `setOptiomizer()` can be used to run all KERAS optimizers by str.
+- Loss function - `loss`
+- General parameters like: `epochs`, `batchSize`, `validationSplit`
+- Activation can be set with `activation` (for all layers except the last one) and `outputActivation`
+- EarlyStopping by minimum loss can be activated with `doEarlyStopping` and the patience can be set with the `patience` parameter
+- Layers are set with the `layerDimentions` option as comma separted list
+- For each sample set in the general part of the config a section with the same name is expected. It has to set `input`, `label` and `datatype` and can set `xsec` and `nGen`.
+
+#### Training
+The training for autoencoders is implemented in `train_dnn.py`. It only requires a config to be passed with the `--config` flag. The training can be run in a **binary** or **categorical** mode by setting the `loss` to *binary_crossentropy* or *categorical_crossentropy* as well as setting the output activation accordingly (*sigmoid* vs. *softmax*)
+
+The output folder set in the config will be created if not present on the FS and will overwrite existing files if existent. In the output folder the following files will be created:
+
+- Input information like the passed configuration file (`usedConfig.cfg`), applied transformations (`network_inputTransformation.json`), set attributes of the `DNN` class (`network_attributes.json`)
+- Model summary (`network_report.txt`)
+- Model (`trainedModel.h5py`) and weights (`trainedModel_weights.h5`)
+- Plots for all set metrics and the loss per epoch as pdf
+- ROC curve of the DNN ouput and comparisons to other metrics (== input variables) set in the trainin script **(Only in binary classification)**
+
 
 ## Plotting
 Several plot scripts are provided to check input dataframes and training output.   All scripts are expected to be executed from **within** the plotting folder

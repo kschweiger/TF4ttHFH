@@ -211,12 +211,12 @@ def test_data_properties(mocker, testData):
     #Training set
     assert (data.trainTrainingWeights == data.trainDF["trainWeight"].values).all()
     assert (data.trainLumiWeights == data.trainDF["lumiWeight"].values).all()
-    assert (data.trainLables == data.trainDF["labelID"].values).all()
+    assert (data.trainLabels == data.trainDF["labelID"].values).all()
 
     #Testing set
     assert (data.testTrainingWeights == data.testDF["trainWeight"].values).all()
     assert (data.testLumiWeights == data.testDF["lumiWeight"].values).all()
-    assert (data.testLables == data.testDF["labelID"].values).all()
+    assert (data.testLabels == data.testDF["labelID"].values).all()
 
 
 def test_data_transfromation_gauss(mocker, testData):

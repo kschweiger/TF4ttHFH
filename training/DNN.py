@@ -14,15 +14,19 @@ from tensorflow import Session, device
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from training.trainUtils import r_square
+from training.networkBase import NetWork
 import plotting.plotUtils
 
-class DNN:
+class DNN(NetWork):
+    """
+    Class for setting up and building a neural net for classification. Models wit hat leas on layer are supported.
+    """
     def __init__(self, identifier, inputDim, layerDims, weightDecay=False, activation="relu",
                  outputActivation = "softmax", loss = "binary_crossentropy", metric = None, batchSize = 128):
-
+        
         if not isinstance(layerDims, list):
             raise TypeError("layerDims are required to be of type list but is %s",type(layerDims))
-        
+        super().__init__()
         self.inputDimention = inputDim
         self.nLayer = 0
         self.layerDimention = []
@@ -47,15 +51,6 @@ class DNN:
 
         self.isBinary = False
         
-        self.modelBuilt = False
-        self.modelCompiled = False
-        self.modelTrained = False
-
-        self.trainedModel = None
-
-        self.LayerInitializerKernel = "random_uniform"
-        self.LayerInitializerBias = "zeros"
-
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
 
@@ -304,19 +299,3 @@ class DNN:
         """ Loads a model created with the class """
         self.network = load_model("{0}/trainedModel.h5py".format(inputFolder))
         self.modelTrained = True
-                
-    def getInfoDict(self):
-        """ Save attributies in dict """
-
-        info = {}
-        for attribute in inspect.getmembers(self):
-            if attribute[0].startswith("__"):
-                continue
-            if isinstance(attribute[1], (int, float, list, str, dict)) or attribute[1] is None:
-                key, attribute = attribute
-                if key == "metrics":
-                    if isinstance(attribute, list):
-                        attribute = [x.__name__ if callable(x) else x for x in attribute]
-                info[key] = attribute         
-                
-        return info

@@ -13,8 +13,11 @@ from tensorflow import Session, device
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from training.trainUtils import r_square
+from training.networkBase import NetWork
+
 import plotting.plotUtils
-class Autoencoder:
+
+class Autoencoder(NetWork):
     """
     Class for setting up and building the autoencoder (AE) model. This supports shallow AEs (if hiddenLayerDim is apassed as empty list) and deep AEs by passing 
     a list of dientions for hidden layers. The argument encoderDim is the dimention of the center layer of the network. The systematic for deep AE is the following:
@@ -53,6 +56,7 @@ class Autoencoder:
                     raise RuntimeError("Passed more activations than layer. Expected 1 + %s (len(hiddenLayerDim)) but got %s"%(len(hiddenLayerDim),
                                                                                                                               len(encoderActivation)))
         #########################################################
+        super().__init__()
         self.inputDimention = inputDim
         self.reconstructionDimention = self.inputDimention
         self.encoderDimention = encoderDim
@@ -95,17 +99,7 @@ class Autoencoder:
         self.optimizer = None
         self.batchSize = batchSize
 
-        self.autoencoder = None
-        
-        self.modelBuilt = False
-        self.modelCompiled = False
-        self.modelTrained = False
-
-        self.trainedModel = None
-
-        self.LayerInitializerKernel = "random_uniform"
-        self.LayerInitializerBias = "zeros"
-        
+        self.autoencoder = None     
         
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
@@ -128,52 +122,7 @@ class Autoencoder:
             return losses.mean_absolute_error
         if lossName == "MSLE":
             return losses.mean_squared_logarithmic_error
-
-    def setOptimizer(self, **kwargs):
-        """ Function for setting the optimizer """
-        logging.debug("Optimizer to set: %s", kwargs["optimizerName"])
-        addkwargs = [k for k in kwargs.keys() if k != "optimizerName"]
-        logging.debug("Additional arguments : %s", addkwargs)
-        if kwargs["optimizerName"] == "rmsprop":
-            optimizerFunc = optimizers.RMSprop
-        elif kwargs["optimizerName"] == "adagrad":
-            optimizerFunc = optimizers.Adagrad
-        elif kwargs["optimizerName"] == "adam":
-            optimizerFunc = optimizers.Adam
-        else:
-            raise NotImplementedError("Optiizer %s not implemented"%kwargs["optimizerName"])
-        defaultSig = self._parseSignature(inspect.signature(optimizerFunc))
-        useSig = {}
-        for arg in defaultSig:
-            if arg not in kwargs:
-                useSig[arg] = defaultSig[arg]
-            else:
-                useSig[arg] = kwargs[arg]
-        logging.debug("Default signature: %s",defaultSig)
-        logging.debug("Will use signature: %s",useSig)
-        for arg in addkwargs:
-            if arg not in useSig.keys():
-                raise RuntimeError("Passed argument %s no valid argument for optimizer %s"%(arg, kwargs["optimizerName"]))
-
-        if kwargs["optimizerName"] == "rmsprop":
-            self.optimizer = optimizers.RMSprop(lr=useSig["lr"], rho=useSig["rho"], epsilon=useSig["epsilon"], decay=useSig["decay"])
-        elif kwargs["optimizerName"] == "adagrad":
-            self.optimizer =optimizers.Adagrad(lr=useSig["lr"], epsilon=useSig["epsilon"], decay=useSig["decay"])
-        elif kwargs["optimizerName"] == "adam":
-            self.optimizer =optimizers.Adam(lr=useSig["lr"], beta_1=useSig["beta_1"], beta_2=useSig["beta_2"],
-                                            epsilon=useSig["epsilon"], decay=useSig["decay"], amsgrad=useSig["amsgrad"])
-        else:
-            raise RuntimeError("This should certainly not happen!")
-
-    @staticmethod
-    def _parseSignature(signature):
-        """ Parses the inspect.signature object and returns a dict with argument, default pairs """
-        defaultSignature = {}
-        for k,v in signature.parameters.items():
-            if v.default is not inspect.Parameter.empty:
-                defaultSignature[k] = v.default
-        return defaultSignature
-    
+       
     def buildModel(self, plot=False):
         """ Building the network """
         kernelRegulizer = regularizers.l2(self.weightDecayLambda) if self.useWeightDecay else regularizers.l1(0.)
@@ -468,18 +417,4 @@ class Autoencoder:
 
         return evalMetric, reconstructionError
                 
-    def getInfoDict(self):
-        """ Save attributies in dict """
-
-        info = {}
-        for attribute in inspect.getmembers(self):
-            if attribute[0].startswith("__"):
-                continue
-            if isinstance(attribute[1], (int, float, list, str, dict)) or attribute[1] is None:
-                key, attribute = attribute
-                if key == "metrics":
-                    if isinstance(attribute, list):
-                        attribute = [x.__name__ if callable(x) else x for x in attribute]
-                info[key] = attribute         
-                
-        return info
+   
