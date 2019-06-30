@@ -110,33 +110,7 @@ class DNN(NetWork):
         self.modelBuilt = True
         return True
 
-    def compileModel(self, writeyml=False, outdir="."):
-        if self.optimizer is None:
-            raise RuntimeError("Optimizer not set")
-        if not self.modelBuilt:
-            raise RuntimeError("Model not built")
 
-        if self.optimizer == "adam":
-            self.optimizer = optimizers.Adam(1e-4)
-        
-        logging.info("Will compile model with")
-        logging.info("  Optimiizer: %s", self.optimizer)
-        logging.info("  Loss function: %s", self.loss)
-        logging.info("  Metrics: %s", self.metrics)
-        self.network.compile(
-            optimizer=self.optimizer,
-            loss=self.loss,
-            metrics=self.metrics
-        )
-
-        self.modelCompiled = True
-        
-        if writeyml:
-            ymlModel = self.network.to_yaml()
-            with open("{0}/{1}_model_summary.yml".format(outdir, self.name), "w") as f:
-                f.write(ymlModel)
-
-        return True
 
     def trainModel(self, trainingData, trainingLabels, trainingWeights, outputFolder, epochs=100, valSplit=0.25, earlyStopping=False, patience=0):
         if not self.modelCompiled:

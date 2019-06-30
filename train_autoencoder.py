@@ -225,7 +225,7 @@ def trainAutoencoder(config, useDevice, batch=False):
     testWeights = data.testTrainingWeights
 
     logging.info("Fitting model")
-    thisAutoencoder.autoencoder.summary()
+    thisAutoencoder.network.summary()
     if not batch:
         input("Press ret")
     thisAutoencoder.trainModel(trainData,

@@ -99,7 +99,7 @@ class Autoencoder(NetWork):
         self.optimizer = None
         self.batchSize = batchSize
 
-        self.autoencoder = None     
+        self.network = None     
         
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
@@ -209,65 +209,37 @@ class Autoencoder(NetWork):
             decoder = decoderLayer(encoder)
 
         logging.debug("Setting autoencoder")
-        self.autoencoder = Model(inputLayer, decoder)
+        self.network = Model(inputLayer, decoder)
         
         logging.debug("Setting encoder")
         self.encoder = Model(inputLayer, encoder)
         
         encodedInput = Input(shape=(self.encoderDimention,))
-        # print(self.autoencoder.layers)
+        # print(self.network.layers)
         if self.nHidden > 0:
             logging.debug("Setting decoder")
             inputSet = False
             for i in list(range(1,self.nHidden+2))[::-1]:
                 if not inputSet:
-                    logging.debug("Adding layer %s - %s as decoder input", -i, self.autoencoder.layers[-i])
-                    decoderLayer_ = self.autoencoder.layers[-i](encodedInput)
+                    logging.debug("Adding layer %s - %s as decoder input", -i, self.network.layers[-i])
+                    decoderLayer_ = self.network.layers[-i](encodedInput)
                     inputSet = True
                     logging.debug("Set decoderLayer_ %s", decoderLayer_)
                 else:
-                    decoderLayer_ = self.autoencoder.layers[-i](decoderLayer_)
+                    decoderLayer_ = self.network.layers[-i](decoderLayer_)
                     logging.debug("Set decoderLayer_ %s", decoderLayer_)
             self.decoder = Model(encodedInput, decoderLayer_)
         else:
-            decoderLayer_ = self.autoencoder.layers[-1](encodedInput)
+            decoderLayer_ = self.network.layers[-1](encodedInput)
             self.decoder = Model(encodedInput, decoderLayer_)
         
         if plot:
-            plot_model(self.autoencoder, to_file="autoencoder_model.png", show_shapes=True)
+            plot_model(self.network, to_file="autoencoder_model.png", show_shapes=True)
             plot_model(self.encoder, to_file="encoder_model.png", show_shapes=True)
             plot_model(self.decoder, to_file="decoder_model.png", show_shapes=True) 
             
 
         self.modelBuilt = True
-        return True
-
-    def compileModel(self, writeyml=False, outdir="."):
-        if self.optimizer is None:
-            raise RuntimeError("Optimizer not set")
-        if not self.modelBuilt:
-            raise RuntimeError("Model not built")
-
-        logging.info("Will compile model with")
-        logging.info("  Optimiizer: %s", self.optimizer)
-        logging.info("  Loss function: %s", self.lossFunction)
-        logging.info("  Metrics: %s", self.metrics)
-        print(r_square)        
-        self.autoencoder.compile(
-            optimizer=self.optimizer,
-            #optimizer="adam",
-            #loss="mse",
-            loss=self.lossFunction,
-            metrics=self.metrics
-        )
-
-        self.modelCompiled = True
-        
-        if writeyml:
-            ymlModel = self.autoencoder.to_yaml()
-            with open("{0}/{1}_model_summary.yml".format(outdir, self.name), "w") as f:
-                f.write(ymlModel)
-
         return True
 
     def trainModel(self, trainingData, trainingWeights, outputFolder, epochs=100, valSplit=0.25, thisDevice="/device:CPU:0", earlyStopping=False, patience=0):
@@ -278,7 +250,7 @@ class Autoencoder(NetWork):
             raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingData))
         if not isinstance(trainingWeights, np.ndarray):
             raise TypeError("trainingdata should be np.ndarray but is %s"%type(trainingWeights))
-        logging.info("Starting training of the autoencoder %s", self.autoencoder)
+        logging.info("Starting training of the autoencoder %s", self.network)
         logging.warning("Will start training on %s", thisDevice)
         
         allCallbacks = []
@@ -292,7 +264,7 @@ class Autoencoder(NetWork):
         if not allCallbacks:
             allCallbacks = None
             
-        self.trainedModel = self.autoencoder.fit(trainingData, trainingData,
+        self.trainedModel = self.network.fit(trainingData, trainingData,
                                                  batch_size = self.batchSize,
                                                  epochs = epochs,
                                                  shuffle = True,                                                     
@@ -301,7 +273,7 @@ class Autoencoder(NetWork):
                                                  callbacks = allCallbacks)
 
         #logging.debug("Loading best model: %s/best_model.h5py", outputFolder)
-        #self.autoencoder = load_model("{0}/best_model.h5py".format(outputFolder))
+        #self.network = load_model("{0}/best_model.h5py".format(outputFolder))
         #logging.debug("Removing file for best model: %s/best_model.h5py", outputFolder)
         #os.remove("{0}/best_model.h5py".format(outputFolder))
         self.modelTrained = True
@@ -313,7 +285,7 @@ class Autoencoder(NetWork):
         if not self.modelTrained:
             raise RuntimeError("Model not yet trainede")
 
-        self.modelEvaluation = self.autoencoder.evaluate(testData, testData)
+        self.modelEvaluation = self.network.evaluate(testData, testData)
 
         #print(self.modelEvaluation)
         if splitNetwork:
@@ -321,7 +293,7 @@ class Autoencoder(NetWork):
             predictDecoder = self.decoder.predict(predictEncoder)
             logging.info("Mean activations: %s",predictEncoder.mean())
         else:
-            predictDecoder = self.autoencoder.predict(testData)
+            predictDecoder = self.network.predict(testData)
         # print("Input test data")
         # print(testData)
         # print("Prediction encoder layer")
@@ -368,11 +340,11 @@ class Autoencoder(NetWork):
         """ Function for saving the model and additional information """
         fileNameModel = "trainedModel.h5py"
         logging.info("Saving model at %s/%s", outputFolder, fileNameModel)
-        self.autoencoder.save("%s/%s"%(outputFolder, fileNameModel))
+        self.network.save("%s/%s"%(outputFolder, fileNameModel))
 
         fileNameWeights = "trainedModel_weights.h5"
         logging.info("Saving model weights at %s/%s", outputFolder, fileNameWeights)
-        self.autoencoder.save_weights("%s/%s"%(outputFolder, fileNameWeights))
+        self.network.save_weights("%s/%s"%(outputFolder, fileNameWeights))
 
         infos = self.getInfoDict()
         print(infos)
@@ -384,7 +356,7 @@ class Autoencoder(NetWork):
         fileNameReport = "autoencoder_report.txt"
         logging.info("Saving summary to %s/%s", outputFolder, fileNameReport)
         with open("%s/%s"%(outputFolder, fileNameReport),'w') as fh:
-            self.autoencoder.summary(print_fn=lambda x: fh.write(x + '\n'))
+            self.network.summary(print_fn=lambda x: fh.write(x + '\n'))
     
         if transfromations is not None:
             fileNameTransfromations = "auoencoder_inputTransformation.json"
@@ -394,11 +366,11 @@ class Autoencoder(NetWork):
 
     def loadModel(self, inputFolder):
         """ Loads a model created with the class """
-        self.autoencoder = load_model("{0}/trainedModel.h5py".format(inputFolder))
+        self.network = load_model("{0}/trainedModel.h5py".format(inputFolder))
         self.modelTrained = True
 
     def _getAutoencoderPrediction(self, inputData):
-        return self.autoencoder.predict(inputData)
+        return self.network.predict(inputData)
     
     def getReconstructionErr(self, inputData, evalMetric=None):
         """ Prdiction of autoencoder for given input dataset. Returns the reconstruction error """
