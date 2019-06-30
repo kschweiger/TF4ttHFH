@@ -156,8 +156,9 @@ class DNN(NetWork):
 
     def evalModel(self, testData, testWeights, testLabels,
                   trainData, trainWeights, trainLabels,
-                  variables, outputFolder, plotMetics=False,
-                  saveData=False, plotPostFix="", addROCMetrics = []):
+                  variables, outputFolder, classes, 
+                  plotMetics=False, saveData=False,
+                  plotPostFix="", addROCMetrics = []):
         """ 
         Evaluate trained model. Do not pass categorical lables in case of multiclassification! Will be converted in function
         
@@ -226,12 +227,19 @@ class DNN(NetWork):
 
             plotting.plotUtils.makeROCPlot(ROCMetrics, AUCMetrics,
                                            output = outputFolder+"/"+self.name+"_ROC"+plotPostFix)
-            
+
+            legendTest = []
+            legendTrain = []
+            for sample in classes:
+                legendTest.append("Test sample - {0} (ID: {1})".format(sample, classes[sample]))
+                legendTrain.append("Train sample - {0} (ID: {1})".format(sample, classes[sample]))
+
+                
             plotting.plotUtils.make1DHistoPlot(getSigBkgArrays(testLabels, preditionTest[:,0]),
                                                getSigBkgArrays(testLabels, testWeights),
                                                output = outputFolder+"/"+self.name+"_TestBvS"+plotPostFix,
                                                varAxisName = "DNN prediction",
-                                               legendEntries = ["Background test sample", "Signal test sample"],
+                                               legendEntries = legendTest,
                                                nBins = 30,
                                                binRange = (0,1),
                                                normalized = True)
@@ -240,13 +248,14 @@ class DNN(NetWork):
                                                getSigBkgArrays(trainLabels, trainWeights),
                                                output = outputFolder+"/"+self.name+"_TrainBvS"+plotPostFix,
                                                varAxisName = "DNN prediction",
-                                               legendEntries = ["Background train sample", "Signal train sample"],
+                                               legendEntries = legendTrain,
                                                nBins = 30,
                                                binRange = (0,1),
                                                normalized = True)
 
         if saveData:
             data2Pickle = {"variable" : variables,
+                           "classes" : classes,
                            "trainInputData" : trainData,
                            "trainInputWeight" : trainWeights,
                            "trainInputLabels" : trainLabels,

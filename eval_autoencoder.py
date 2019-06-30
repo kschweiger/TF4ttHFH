@@ -88,11 +88,11 @@ class EvalConfig(ConfigReaderBase):
             
 
             
-def initialize(config):
+def initialize(config, incGenWeights=False):
     """ Initialze samples and data  """
     #Get samples
     allSamples = {}
-    for group in config.sampleGroups:
+    for igroup, group in enumerate(config.sampleGroups):
         logging.info("Processing group %s", group)
         allSamples[group] = []
         for iSample, sample in enumerate(config.sampleGroups[group]):
@@ -101,7 +101,7 @@ def initialize(config):
                 Sample(
                     inFile = config.sampleInfos[sample].input,
                     label = config.sampleInfos[sample].label,
-                    labelID = iSample,
+                    labelID = igroup,
                     xsec = config.sampleInfos[sample].xsec,
                     nGen = config.sampleInfos[sample].nGen,
                     dataType = config.sampleInfos[sample].datatype
@@ -122,7 +122,8 @@ def initialize(config):
             shuffleData = True,
             shuffleSeed = config.trainingConifg.SuffleSeed,
             lumi = config.lumi,
-            transform = False
+            transform = False,
+            includeGenWeight = incGenWeights
         )
 
         data[group].transformations = config.trainingTransfromation

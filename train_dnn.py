@@ -186,6 +186,7 @@ def trainDNN(config, batch=False):
                       trainLabels,
                       config.trainingVariables,
                       config.output,
+                      data.outputClasses,
                       plotMetics=True,
                       saveData=True,
                       addROCMetrics = ROCMetrics)

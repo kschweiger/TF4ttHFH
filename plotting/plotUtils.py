@@ -76,7 +76,7 @@ def make1DPlot(listOfValueTupless, output, xAxisName, yAxisName, legendEntries, 
 
     return True
         
-def makeROCPlot(ROCs, AUCs, output):
+def makeROCPlot(ROCs, AUCs, output, passedLegend=None):
     """
     Plot ROCs passed to function. 
 
@@ -92,7 +92,8 @@ def makeROCPlot(ROCs, AUCs, output):
     for key in ROCs:
         fpr, tpr, _ = ROCs[key]
         plotVals.append((fpr, tpr))
-        legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCs[key]))
+        if passedLegend is None:
+            legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCs[key]))
 
 
     for iVal, values in enumerate(plotVals):
@@ -108,7 +109,10 @@ def makeROCPlot(ROCs, AUCs, output):
     base.set_ylabel("False Postive Rate")
 
     base.grid(False)
-    base.legend(legendEntries)
+    if passedLegend is None:
+        base.legend(legendEntries)
+    else:
+        base.legend(passedLegend)
     logging.info("Saving file: {0}".format(output+".pdf"))
     plt.savefig(output+".pdf")
 
