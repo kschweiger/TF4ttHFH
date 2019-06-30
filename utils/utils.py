@@ -9,6 +9,9 @@ import sys
 
 import numpy as np
 
+from scipy.integrate import simps
+from sklearn.metrics import roc_auc_score, roc_curve, auc
+
 def initLogging(thisLevel):
     """
     Helper function for setting up python logging
@@ -80,4 +83,21 @@ def getSigBkgArrays(inputlabel, inputArray):
         outLists[inputlabel[iElem]].append(elem)
 
     return outLists
+
+def getROCs(labels, classifier, weights):
+    ROC, AUC = None, None
+    ROC = roc_curve(labels, classifier, sample_weight=weights)
+    fpr ,tpr ,_ = ROC
+    AUC = np.trapz(tpr, fpr)
+
+    if AUC < 0.5:
+        logging.warning("Inverting ROC")
+        invLabels = []
+        for label in labels:
+            invLabels.append(0 if label == 1 else 1)
+        ROC = roc_curve(invLabels, classifier, sample_weight=weights)
+        fpr ,tpr ,_ = ROC
+        AUC = np.trapz(tpr, fpr)
+
+    return ROC, AUC
 

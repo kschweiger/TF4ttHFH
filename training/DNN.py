@@ -4,7 +4,7 @@ import json
 import os
 
 import numpy as np
-
+import pickle
 
 from keras.layers import Input, Dense
 from keras.models import Model, load_model
@@ -15,7 +15,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from scipy.integrate import simps
 
-from utils.utils import reduceArray, getSigBkgArrays
+from utils.utils import reduceArray, getSigBkgArrays, getROCs
 from training.trainUtils import r_square
 from training.networkBase import NetWork
 import plotting.plotUtils
@@ -156,7 +156,8 @@ class DNN(NetWork):
 
     def evalModel(self, testData, testWeights, testLabels,
                   trainData, trainWeights, trainLabels,
-                  variables, outputFolder, plotMetics=False, saveData=False, plotPostFix="", addROCMetrics = []):
+                  variables, outputFolder, plotMetics=False,
+                  saveData=False, plotPostFix="", addROCMetrics = []):
         """ 
         Evaluate trained model. Do not pass categorical lables in case of multiclassification! Will be converted in function
         
@@ -216,42 +217,16 @@ class DNN(NetWork):
             logging.info("ROC score: %s", roc_auc_score)
             
         else:
-            reduction = 10
             AUCMetrics = {}
             ROCMetrics = {}
-            ROCMetrics["DNN"] = roc_curve(testLabels, preditionTest[:,0], sample_weight=testWeights)
-            #AUC seems not to work because it thinks the rates are not monotonous
-            fpr ,tpr ,_ = ROCMetrics["DNN"]
-            AUCMetrics["DNN"] = np.trapz(tpr, fpr)
+            ROCMetrics["DNN"], AUCMetrics["DNN"] = getROCs(testLabels, preditionTest[:,0], testWeights)
             for metric, values in addROCMetrics:
                 logging.info("Making ROC curve for %s", metric)
-                ROCMetrics[metric] = roc_curve(testLabels, values, sample_weight=testWeights)
-                fpr ,tpr ,_ = ROCMetrics[metric]
-                AUCMetrics[metric] = np.trapz(tpr, fpr)
+                ROCMetrics[metric], AUCMetrics[metric] = getROCs(testLabels, values, testWeights)
 
-                if AUCMetrics[metric] < 0.5:
-                    logging.warning("Inverting ROC for %s", metric)
-                    invLabels = []
-                    for label in testLabels:
-                        invLabels.append(0 if label == 1 else 1)
-                    invLabels = np.array(invLabels)
-                    ROCMetrics[metric] = roc_curve(invLabels, values, sample_weight=testWeights)
-                    fpr ,tpr ,_ = ROCMetrics[metric]
-                    AUCMetrics[metric] = np.trapz(tpr, fpr)
-            plotVals = []
-            legendEntries = []
-            for key in ROCMetrics:
-                fpr, tpr, _ = ROCMetrics[key]
-                plotVals.append((fpr, tpr))
-                    
-                legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCMetrics[key]))
-                
-            plotting.plotUtils.make1DPlot(plotVals,
-                                          output = outputFolder+"/"+self.name+"_ROC"+plotPostFix,
-                                          xAxisName = "False Postive Rate",
-                                          yAxisName = "True Postive Rate",
-                                          legendEntries = legendEntries)
-
+            plotting.plotUtils.makeROCPlot(ROCMetrics, AUCMetrics,
+                                           output = outputFolder+"/"+self.name+"_ROC"+plotPostFix)
+            
             plotting.plotUtils.make1DHistoPlot(getSigBkgArrays(testLabels, preditionTest[:,0]),
                                                getSigBkgArrays(testLabels, testWeights),
                                                output = outputFolder+"/"+self.name+"_TestBvS"+plotPostFix,
@@ -269,9 +244,24 @@ class DNN(NetWork):
                                                nBins = 30,
                                                binRange = (0,1),
                                                normalized = True)
+
+        if saveData:
+            data2Pickle = {"variable" : variables,
+                           "trainInputData" : trainData,
+                           "trainInputWeight" : trainWeights,
+                           "trainInputLabels" : trainLabels,
+                           "trainPredictionData" : preditionTrain,
+                           "testInputData" : testData,
+                           "testInputWeight" : testWeights,
+                           "testInputLabels" : testLabels,
+                           "testPredictionData" : preditionTest,
+
+            }
+            with open("{0}/testDataArrays.pkl".format(outputFolder), "wb") as pickleOut:
+                 pickle.dump(data2Pickle, pickleOut)
+                 
+        return preditionTest, preditionTrain
             
-            
-                
     def saveModel(self, outputFolder, transfromations=None):
         """ Function for saving the model and additional information """
         fileNameModel = "trainedModel.h5py"
@@ -304,3 +294,6 @@ class DNN(NetWork):
         """ Loads a model created with the class """
         self.network = load_model("{0}/trainedModel.h5py".format(inputFolder))
         self.modelTrained = True
+
+    def getPrediction(self, inputData):
+        return self.network.predict(inputData)

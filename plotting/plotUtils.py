@@ -76,3 +76,42 @@ def make1DPlot(listOfValueTupless, output, xAxisName, yAxisName, legendEntries, 
 
     return True
         
+def makeROCPlot(ROCs, AUCs, output):
+    """
+    Plot ROCs passed to function. 
+
+    Args:
+      ROCs (dict) : Dict with output from sklearn.metrics.roc_curve 
+      AUCs (dict) : Dict with AUC
+    """
+    assert set(ROCs.keys()) == set(AUCs.keys())
+    fig, base = plt.subplots(dpi=150)
+
+    plotVals = []
+    legendEntries = []
+    for key in ROCs:
+        fpr, tpr, _ = ROCs[key]
+        plotVals.append((fpr, tpr))
+        legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCs[key]))
+
+
+    for iVal, values in enumerate(plotVals):
+        xData, yData = values
+        p = base.plot(xData, yData,
+                      color = getColors()[iVal])
+    
+    p = base.plot(np.array([0,1]), np.array([0,1]),
+                  color='black',
+                  linestyle='dashed')
+
+    base.set_xlabel("True Postive Rate")
+    base.set_ylabel("False Postive Rate")
+
+    base.grid(False)
+    base.legend(legendEntries)
+    logging.info("Saving file: {0}".format(output+".pdf"))
+    plt.savefig(output+".pdf")
+
+    plt.close(fig)
+
+    return True

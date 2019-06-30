@@ -187,6 +187,7 @@ def trainDNN(config, batch=False):
                       config.trainingVariables,
                       config.output,
                       plotMetics=True,
+                      saveData=True,
                       addROCMetrics = ROCMetrics)
 
     logging.info("Saving model")
