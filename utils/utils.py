@@ -7,6 +7,8 @@ import logging
 import os
 import sys
 
+import numpy as np
+
 def initLogging(thisLevel):
     """
     Helper function for setting up python logging
@@ -45,3 +47,37 @@ def checkNcreateFolder(path, onlyFolder=False):
             logging.warning("Creating direcotries %s", path)
             os.makedirs(path)
         
+def reduceArray(inputArray, level):
+    """
+    Reduces to size of an array by averaging over mulitlpe subentries.
+    
+    Args:
+      inputArray (np.array) : INput array
+      level (int) : Level of reduction. Will split input array into subarrays of len level and calc. the average for all
+    """
+    print(level)
+    outArray = []
+    splitArray = []
+    lastIndex = 0
+    for i in range(len(inputArray)):
+        if i%level == 0 and i != 0:
+            splitArray.append(np.array(inputArray[lastIndex:i]))
+            lastIndex = i
+    splitArray.append(np.array(inputArray[lastIndex::]))
+    for split in splitArray:
+        outArray.append(np.average(split))
+
+    return  np.array(outArray)
+
+
+def getSigBkgArrays(inputlabel, inputArray):
+    """Splits inputArray according to inputlables in separate arrays """
+    nOutputArrays = inputlabel.max()
+    if nOutputArrays == 0:
+        raise RuntimeError("Maximum label 0. No splitting possible")
+    outLists = [[] for i in range(nOutputArrays+1)]
+    for iElem, elem in enumerate(inputArray):
+        outLists[inputlabel[iElem]].append(elem)
+
+    return outLists
+

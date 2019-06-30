@@ -11,10 +11,11 @@ import configparser
  
 import uproot as root
 import pandas as pd
+import numpy as np
 import copy
 
 from utils.ConfigReader import ConfigReaderBase
-from utils.utils import initLogging
+from utils.utils import initLogging, reduceArray, getSigBkgArrays
 
 import pytest
 
@@ -64,3 +65,16 @@ def test_ConfigReaderBase(mocker, mockExpectationConfig):
 @pytest.mark.parametrize("level", [10,20,30,40,50,0])
 def test_logging_setup(level):
     assert initLogging(level)
+
+@pytest.mark.parametrize("inputArray, level, outputArray", [(np.array([1,2,3,4]), 2, np.array([1.5, 3.5])),
+                                                            (np.array([1,2,3,4,5]), 2, np.array([1.5, 3.5, 5]))])
+def test_reduceArray(inputArray, level, outputArray):
+    assert (outputArray == reduceArray(inputArray, level)).all()
+    
+@pytest.mark.parametrize("inputArray, inputLabels, expectedArray", [(np.array([1,2,3,4]), np.array([0,1,0,1]), (np.array([1, 3]), np.array([2, 4]))),
+                                                                     (np.array([1,2,3,4]), np.array([0,2,1,2]), (np.array([1, 3]),np.array([3]), np.array([2, 4])))])
+def test_getSigBkgArrays(inputArray, inputLabels, expectedArray):
+    retArrays = getSigBkgArrays(inputLabels, inputArray)
+    for iarray, array in enumerate(expectedArray):
+        (array == retArrays[iarray]).all()
+

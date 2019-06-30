@@ -51,6 +51,7 @@ class Sample:
         logging.warning("Trigger weight disabled")
         if includeGenWeight:
             logging.warning("Will include xsec and nGen in train weight")
+            logging.debug("Which are: xsec = %s and nGen = %s", self.xsec, self.nGen )
             df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * self.xsec * (1/self.nGen))# * x.triggerWeight)
         else:
             df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)

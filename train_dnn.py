@@ -128,7 +128,7 @@ def trainDNN(config, batch=False):
     if config.net.loss == "binary_crossentropy":
         thisDNN.buildModel(nClasses = 1)
     else:
-        thisDNN.buildModel()
+        thisDNN.buildModel(nClasses = len(data.outputClasses))
     logging.info("Compiling model")
     thisDNN.compileModel()
 

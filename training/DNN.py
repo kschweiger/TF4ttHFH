@@ -13,6 +13,9 @@ from keras.utils import plot_model, print_summary, to_categorical
 from tensorflow import Session, device
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
+from scipy.integrate import simps
+
+from utils.utils import reduceArray, getSigBkgArrays
 from training.trainUtils import r_square
 from training.networkBase import NetWork
 import plotting.plotUtils
@@ -56,7 +59,8 @@ class DNN(NetWork):
 
 
     def buildModel(self, nClasses=2, plot=False):
-        """ Building the network """        
+        """ Building the network """
+        logging.debug("Got nClasses = %s", nClasses)
         kernelRegulizer = regularizers.l2(self.weightDecayLambda) if self.useWeightDecay else regularizers.l1(0.)
         
         inputLayer = Input(shape=(self.inputDimention,))
@@ -88,7 +92,7 @@ class DNN(NetWork):
                             bias_initializer=self.LayerInitializerBias,
                             activation=self.outputActivation,
                             kernel_regularizer=kernelRegulizer,
-                            name = "outputLayer_"+str(iLayer) )
+                            name = "outputLayer")
 
 
         for iLayer in range(self.nLayer):
@@ -206,30 +210,39 @@ class DNN(NetWork):
         if not self.isBinary:
             predictedTestClasses = np.argmax( preditionTest, axis = 1)
             predictedTrainClasses = np.argmax( preditionTrain, axis = 1)
-            roc_auc_score = roc_auc_score(testLabels, predictedTestClasses)
+            
+            roc_auc_score = roc_auc_score(testLabels, preditionTest)
+
+            logging.info("ROC score: %s", roc_auc_score)
+            
         else:
+            reduction = 10
             AUCMetrics = {}
             ROCMetrics = {}
-            print(testLabels)
             ROCMetrics["DNN"] = roc_curve(testLabels, preditionTest[:,0], sample_weight=testWeights)
             #AUC seems not to work because it thinks the rates are not monotonous
-            AUCMetrics["DNN"] = -1.0#roc_auc_score(testLabels, preditionTest[:,0], sample_weight=testWeights)
+            fpr ,tpr ,_ = ROCMetrics["DNN"]
+            AUCMetrics["DNN"] = np.trapz(tpr, fpr)
             for metric, values in addROCMetrics:
                 logging.info("Making ROC curve for %s", metric)
                 ROCMetrics[metric] = roc_curve(testLabels, values, sample_weight=testWeights)
-                AUCMetrics[metric] = -1.0#roc_auc_score(testLabels, values, sample_weight=testWeights)
+                fpr ,tpr ,_ = ROCMetrics[metric]
+                AUCMetrics[metric] = np.trapz(tpr, fpr)
 
+                if AUCMetrics[metric] < 0.5:
+                    logging.warning("Inverting ROC for %s", metric)
+                    invLabels = []
+                    for label in testLabels:
+                        invLabels.append(0 if label == 1 else 1)
+                    invLabels = np.array(invLabels)
+                    ROCMetrics[metric] = roc_curve(invLabels, values, sample_weight=testWeights)
+                    fpr ,tpr ,_ = ROCMetrics[metric]
+                    AUCMetrics[metric] = np.trapz(tpr, fpr)
             plotVals = []
             legendEntries = []
             for key in ROCMetrics:
                 fpr, tpr, _ = ROCMetrics[key]
-                inverted = False
-                if key in ["MEM"]: #TODO: Get THE AUC working then flopping can be done by checking AUC < 0.5
-                    inverted = True
-                if not inverted:
-                    plotVals.append((fpr, tpr))
-                else:
-                    plotVals.append((tpr, fpr))
+                plotVals.append((fpr, tpr))
                     
                 legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCMetrics[key]))
                 
@@ -238,6 +251,24 @@ class DNN(NetWork):
                                           xAxisName = "False Postive Rate",
                                           yAxisName = "True Postive Rate",
                                           legendEntries = legendEntries)
+
+            plotting.plotUtils.make1DHistoPlot(getSigBkgArrays(testLabels, preditionTest[:,0]),
+                                               getSigBkgArrays(testLabels, testWeights),
+                                               output = outputFolder+"/"+self.name+"_TestBvS"+plotPostFix,
+                                               varAxisName = "DNN prediction",
+                                               legendEntries = ["Background test sample", "Signal test sample"],
+                                               nBins = 30,
+                                               binRange = (0,1),
+                                               normalized = True)
+
+            plotting.plotUtils.make1DHistoPlot(getSigBkgArrays(trainLabels, preditionTrain[:,0]),
+                                               getSigBkgArrays(trainLabels, trainWeights),
+                                               output = outputFolder+"/"+self.name+"_TrainBvS"+plotPostFix,
+                                               varAxisName = "DNN prediction",
+                                               legendEntries = ["Background train sample", "Signal train sample"],
+                                               nBins = 30,
+                                               binRange = (0,1),
+                                               normalized = True)
             
             
                 
