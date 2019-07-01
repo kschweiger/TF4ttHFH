@@ -58,7 +58,6 @@ def reduceArray(inputArray, level):
       inputArray (np.array) : INput array
       level (int) : Level of reduction. Will split input array into subarrays of len level and calc. the average for all
     """
-    print(level)
     outArray = []
     splitArray = []
     lastIndex = 0

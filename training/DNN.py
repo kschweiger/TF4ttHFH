@@ -184,7 +184,9 @@ class DNN(NetWork):
             trainLabels = to_categorical(trainLabels)
             testLabels = to_categorical(testLabels)
 
-        
+        print("--------------------------")
+        print(testLabels)
+        print("--------------------------")
         self.modelEvaluation = self.network.evaluate(testData, testLabels)
 
         print(self.modelEvaluation)
@@ -212,7 +214,7 @@ class DNN(NetWork):
         if not self.isBinary:
             predictedTestClasses = np.argmax( preditionTest, axis = 1)
             predictedTrainClasses = np.argmax( preditionTrain, axis = 1)
-            
+
             roc_auc_score = roc_auc_score(testLabels, preditionTest)
 
             logging.info("ROC score: %s", roc_auc_score)
@@ -258,11 +260,11 @@ class DNN(NetWork):
                            "classes" : classes,
                            "trainInputData" : trainData,
                            "trainInputWeight" : trainWeights,
-                           "trainInputLabels" : trainLabels,
+                           "trainInputLabels" : trainLabels if self.isBinary else predictedTrainClasses,
                            "trainPredictionData" : preditionTrain,
                            "testInputData" : testData,
                            "testInputWeight" : testWeights,
-                           "testInputLabels" : testLabels,
+                           "testInputLabels" : testLabels if self.isBinary else predictedTestClasses,
                            "testPredictionData" : preditionTest,
 
             }

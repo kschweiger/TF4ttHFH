@@ -140,25 +140,6 @@ def trainDNN(config, batch=False):
     trainLabels = data.trainLabels
     trainWeights = data.trainTrainingWeights
     
-    # print("------------------------------")
-    # print(trainData)
-    # print("------------------------------")
-    # print(trainLabels)
-    # print("------------------------------")
-    # print(trainWeights, trainWeights.mean(), trainWeights.std())
-    # print("------------------------------")
-    # print(data.trainDF["eventWeightUnNorm"].values, data.trainDF["eventWeightUnNorm"].mean(), data.trainDF["eventWeightUnNorm"].std())
-    # print("------------------------------")
-    # print(data.trainDF["puWeight"].values, data.trainDF["puWeight"].mean(), data.trainDF["puWeight"].std())
-    # print("------------------------------")
-    # print(data.trainDF["nPVs"].values, data.trainDF["nPVs"].mean(), data.trainDF["nPVs"].std())
-    # print("------------------------------")
-    # print(data.trainDF["btagNorm"].values, data.trainDF["btagNorm"].mean(), data.trainDF["btagNorm"].std())
-    # print("------------------------------")
-    # print(data.trainDF["btagWeight_shape"].values, data.trainDF["btagWeight_shape"].mean(), data.trainDF["btagWeight_shape"].std())
-    # print("------------------------------")
-    # print(data.trainDF["weight_CRCorr"].values, data.trainDF["weight_CRCorr"].mean(), data.trainDF["weight_CRCorr"].std())
-
     logging.info("Training DNN")
     thisDNN.trainModel(
         trainData, trainLabels,

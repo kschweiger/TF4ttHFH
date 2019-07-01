@@ -124,7 +124,7 @@ The output folder set in the config will be created if not present on the FS and
 
 
 #### Evaluation
-Evaluating a training done with `train_autoencoder.py` (it requires some of the output files) can be done with the `eval_autoencoder.py` script. It requires only a config to be passed with the `--config` flag.
+Evaluating a training done with `train_autoencoder.py` can be done with the `eval_autoencoder.py` script. The evaluation script requires some additionl files saved during training. It requires only a config to be passed with the `--config` flag.
 
 ### Classification DNN
 In the config the follow parameters of the network can be set:
@@ -149,6 +149,8 @@ The output folder set in the config will be created if not present on the FS and
 - Plots for all set metrics and the loss per epoch as pdf
 - ROC curve of the DNN ouput and comparisons to other metrics (== input variables) set in the trainin script **(Only in binary classification)**
 
+#### Evaluation
+Evaluating a training done with `train_dnn.py` can be done with the `eval_dnn.py` script. The evaluation script requires some additionl files saved during training. It requires only a config to be passed with the `--config` flag. In the config a "signal" sample need to be set in order to calculate ROC curves. When categorical classification was used ROCs will be produced for all samples respective to the set signal samples. Check `data/evalDNN_testing.cfg` and `data/evalDNN_testing_multi.cfg` for example configurations.
 
 ## Plotting
 Several plot scripts are provided to check input dataframes and training output.   All scripts are expected to be executed from **within** the plotting folder

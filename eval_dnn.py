@@ -99,22 +99,22 @@ class EvalConfig(ConfigReaderBase):
             logging.debug("    nGen: %s", self.sampleInfos[sample].nGen)
             logging.debug("    datatype: %s", self.sampleInfos[sample].datatype)
             
-
-            
-def evalDNN_binary(config, allSample, data, thisDNN):
+def getValues(config, allSample, data, thisDNN):
+    logging.info("Getting values")
     inputs = {}
     predictions = {}
     weights = {}
     labels = {}
+    logging.info("Loading data from train script")
+    with open("{0}/testDataArrays.pkl".format(config.trainingOutput), "rb") as pickleIn:
+        loadData = pickle.load(pickleIn)
+
+    labelIDs = loadData["classes"]
     for group in data.keys():
         inputs[group] = data[group].getTestData()
         predictions[group] = thisDNN.getPrediction(data[group].getTestData())
         weights[group] = data[group].testTrainingWeights
-    print(config.trainingConifg.samples)        
     if config.loadTrainingData:
-        logging.info("Loading data from train script")
-        with open("{0}/testDataArrays.pkl".format(config.trainingOutput), "rb") as pickleIn:
-            loadData = pickle.load(pickleIn)
         logging.info("Found samples %s", loadData["classes"])
         loadedInput = getSigBkgArrays(loadData["testInputLabels"], loadData["testInputData"])
         loadedWeights = getSigBkgArrays(loadData["testInputLabels"], loadData["testInputWeight"])
@@ -127,14 +127,17 @@ def evalDNN_binary(config, allSample, data, thisDNN):
             weights[name] =  np.array(loadedWeights[int(loadData["classes"][name])])
             predictions[name] =  np.array(loadedPredictions[int(loadData["classes"][name])])
 
-    
+        
+    return inputs, predictions, weights, labels, labelIDs
+            
+def evalDNN_binary(config, allSample, data, thisDNN):
+    inputs, predictions, weights, labels, labelIDs = getValues(config, allSample, data, thisDNN)
             
     logging.info("Making discriminator comparison plot")
     classLegend = []
     classValues = []
     classWeights = []
     for group in data.keys():
-        print 
         classLegend.append(group)
         classValues.append(predictions[group])
         classWeights.append(weights[group])
@@ -171,8 +174,71 @@ def evalDNN_binary(config, allSample, data, thisDNN):
         
 
 def evalDNN_categorical(config, allSample, data, thisDNN):
-    pass
+    inputs, predictions, weights, labels, labelIDs = getValues(config, allSample, data, thisDNN)
+    
+    bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
 
+    combinePredictions = {}
+    for group in data.keys():
+        logging.info("Getting combined prediction for %s", group)
+        combinePredictions[group] = getCombinedPrediction(predictions[group],
+                                                         labelIDs[config.signalSampleGroup],
+                                                         [labelIDs[b] for b in bkgs])
+    classLegend = []
+    classValues = []
+    classWeights = []
+    for group in data.keys():
+        classLegend.append(group)
+        classValues.append(combinePredictions[group])
+        classWeights.append(weights[group])
+        
+    make1DHistoPlot(classValues, classWeights,
+                    output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClassifier"),
+                    nBins = config.plottingBins,
+                    binRange = (config.plottingRangeMin, config.plottingRangeMax),
+                    varAxisName = "DNN Discriminator",
+                    legendEntries = classLegend,
+                    normalized = True)
+
+    ROCPlotvals = {}
+    AUCPlotvals = {}
+    ROCPlotLabels = []
+
+    for bkg in bkgs:
+        logging.info("Getting ROCs for %s", bkg)
+        nSignal = len(combinePredictions[config.signalSampleGroup])
+        nBackgorund = len(combinePredictions[bkg])
+        ROCPlotvals[bkg], AUCPlotvals[bkg] = getROCs(np.append(np.array(nSignal*[0]),
+                                                               np.array(nBackgorund*[1])),
+                                                     np.append(combinePredictions[config.signalSampleGroup],
+                                                               combinePredictions[bkg]),
+                                                     np.append(weights[config.signalSampleGroup],
+                                                               weights[bkg]))
+        ROCPlotLabels.append("{0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg]))
+        
+    makeROCPlot(ROCPlotvals, AUCPlotvals,
+                output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClass_ROCs"),
+                passedLegend = ROCPlotLabels)
+        
+def getCombinedPrediction(prediction, signalID, bkgIDs, bkgKappas=None):
+    """ 
+    Combining the output of all categorical classification output nodes
+    Note: If not bkgKappas are passed this is equal to only look at the node with ID signalID
+    """
+    if bkgKappas is None:
+        bkgKappas = len(bkgIDs)*[1.0]
+    assert len(bkgIDs) == len(bkgKappas)
+    bkgSum = None
+    for iID, ID in enumerate(bkgIDs):
+        logging.debug("Getting column %s",ID)
+        if iID == 0:
+            bkgSum = bkgKappas[iID] * prediction[:,ID]
+        else:
+            bkgSum = bkgSum + (bkgKappas[iID] * prediction[:,ID])
+
+    return prediction[:,signalID]/(prediction[:,signalID] + bkgSum)
+
+    
 def evalDNN(config):
     checkNcreateFolder(config.plottingOutput, onlyFolder=True)
     logging.info("Initializing samples and data")
