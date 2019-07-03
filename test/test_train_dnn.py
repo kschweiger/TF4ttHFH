@@ -64,6 +64,7 @@ def mockExpectationConfig():
     expectation["NeuralNet"] = {"activation" : "relu",
                                 "outputActivation" : "softmax",
                                 "useWeightDecay" : False,
+                                "weightDecayLambda" : 1e-3,
                                 "name" : "AllOptDNN",
                                 "layerDimentions" : "20,20",
                                 "optimizer" : "adagrad",
@@ -107,6 +108,7 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.activation == configExpectationRequired["NeuralNet"]["activation"]
     assert testConfig.net.outputActivation == configExpectationRequired["NeuralNet"]["outputActivation"]
     assert testConfig.net.useWeightDecay == False
+    assert testConfig.net.weightDecayLambda == 1e-5
     assert testConfig.net.name == configExpectationRequired["NeuralNet"]["name"]
     assert testConfig.net.layerDimentions == [int(configExpectationRequired["NeuralNet"]["inputDimention"])]
     assert testConfig.net.inputDimention == int(configExpectationRequired["NeuralNet"]["inputDimention"])
@@ -152,6 +154,7 @@ def test_config_all(mocker, mockExpectationConfig):
     assert testConfig.net.activation == configExpectation["NeuralNet"]["activation"]
     assert testConfig.net.outputActivation == configExpectation["NeuralNet"]["outputActivation"]
     assert testConfig.net.useWeightDecay == configExpectation["NeuralNet"]["useWeightDecay"]
+    assert testConfig.net.weightDecayLambda ==  configExpectation["NeuralNet"]["weightDecayLambda"]
     assert testConfig.net.name == configExpectation["NeuralNet"]["name"]
     assert testConfig.net.layerDimentions == [int(x) for x in configExpectation["NeuralNet"]["layerDimentions"].split(",")]
     assert testConfig.net.inputDimention == int(configExpectation["NeuralNet"]["inputDimention"])

@@ -61,7 +61,7 @@ class TrainingConfig(ConfigReaderBase):
             self.SuffleSeed = None if self.SuffleSeed == "None"  else int(self.SuffleSeed)
         
         netTuple = namedtuple("netTuple", ["activation", "outputActivation",
-                                           "useWeightDecay", "name",
+                                           "useWeightDecay", "weightDecayLambda", "name",
                                            "layerDimentions", "inputDimention", "trainEpochs",
                                            "loss", "validationSplit", "optimizer", "batchSize",
                                            "doEarlyStopping", "StoppingPatience"])
@@ -70,6 +70,7 @@ class TrainingConfig(ConfigReaderBase):
             activation = self.readConfig.get("NeuralNet", "activation"),
             outputActivation = self.readConfig.get("NeuralNet", "outputActivation"),
             useWeightDecay = self.setOptionWithDefault("NeuralNet", "useWeightDecay", False, "bool"),
+            weightDecayLambda = self.setOptionWithDefault("NeuralNet", "weightDecayLambda", 1e-5, "float"),
             name = self.readConfig.get("NeuralNet", "name"),
             inputDimention = self.readConfig.getint("NeuralNet", "inputDimention"),
             layerDimentions = self.setOptionWithDefault("NeuralNet", "layerDimentions", [self.readConfig.getint("NeuralNet", "inputDimention")], "intlist"),
@@ -113,6 +114,7 @@ def trainDNN(config, batch=False):
         inputDim = config.net.inputDimention,
         layerDims = config.net.layerDimentions,
         weightDecay = config.net.useWeightDecay,
+        weightDecayLambda = config.net.weightDecayLambda,
         activation = config.net.activation,
         outputActivation = config.net.outputActivation,
         loss = config.net.loss,

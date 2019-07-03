@@ -76,7 +76,7 @@ def make1DPlot(listOfValueTupless, output, xAxisName, yAxisName, legendEntries, 
 
     return True
         
-def makeROCPlot(ROCs, AUCs, output, passedLegend=None):
+def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0):
     """
     Plot ROCs passed to function. 
 
@@ -99,7 +99,7 @@ def makeROCPlot(ROCs, AUCs, output, passedLegend=None):
     for iVal, values in enumerate(plotVals):
         xData, yData = values
         p = base.plot(xData, yData,
-                      color = getColors()[iVal])
+                      color = getColors()[iVal+colorOffset])
     
     p = base.plot(np.array([0,1]), np.array([0,1]),
                   color='black',

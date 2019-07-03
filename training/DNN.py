@@ -24,7 +24,7 @@ class DNN(NetWork):
     """
     Class for setting up and building a neural net for classification. Models wit hat leas on layer are supported.
     """
-    def __init__(self, identifier, inputDim, layerDims, weightDecay=False, activation="relu",
+    def __init__(self, identifier, inputDim, layerDims, weightDecay=False, weightDecayLambda = 1e-5, activation="relu",
                  outputActivation = "softmax", loss = "binary_crossentropy", metric = None, batchSize = 128):
         
         if not isinstance(layerDims, list):
@@ -37,7 +37,7 @@ class DNN(NetWork):
             self.nLayer += 1
             self.layerDimention.append(layerDim)
         self.useWeightDecay = weightDecay
-        self.weightDecayLambda = 1e-5 # Change "by hand" if needed
+        self.weightDecayLambda = weightDecayLambda
 
         if self.nLayer == 0:
             raise RuntimeError("At least one layer must be defines")
@@ -49,6 +49,10 @@ class DNN(NetWork):
         self.metrics = metric
         self.optimizer = None
         self.batchSize = batchSize
+
+        self.earlyStopMonitor = 'val_loss'
+        self.earlyStop = False
+        self.StopValues = None
         
         self.net = None
 
@@ -132,7 +136,8 @@ class DNN(NetWork):
         if earlyStopping:
             logging.warning("Adding early stopping by validation loss")
             logging.debug("Variable paramters: Patience : %s", patience)
-            earlyStoppingLoss = EarlyStopping(monitor='val_loss', verbose=1, patience=patience, restore_best_weights=True)
+            
+            earlyStoppingLoss = EarlyStopping(monitor=self.earlyStopMonitor, verbose=1, patience=patience, restore_best_weights=True)
             allCallbacks.append(earlyStoppingLoss)        	
         if not allCallbacks:
             allCallbacks = None
@@ -151,7 +156,29 @@ class DNN(NetWork):
                                              callbacks = allCallbacks)
 
         self.modelTrained = True
-        
+
+        if len(self.trainedModel.__dict__["epoch"]) != epochs:
+            self.earlyStop = True
+            monitorHistory = self.trainedModel.__dict__["history"][self.earlyStopMonitor]
+            minMonitor = min(monitorHistory)
+            minEpoch = -1
+            for iVal, val in enumerate(monitorHistory):
+                if val == minMonitor:
+                    minEpoch = iVal+1
+                    break
+                
+            logging.debug("Min at epoch %s with monitor value %s", iVal, minMonitor)
+            earlyStopHistory = {}
+            for metric in self.trainedModel.__dict__["history"].keys():
+                earlyStopHistory[metric] = self.trainedModel.__dict__["history"][metric][minEpoch-1]
+            self.StopValues = (minEpoch, earlyStopHistory)
+
+        else:
+            StopHistory = {}
+            for metric in self.trainedModel.__dict__["history"].keys():
+                StopHistory[metric] = self.trainedModel.__dict__["history"][metric][epochs-1]
+            self.StopValues = (epochs, StopHistory)
+            
         return True
 
     def evalModel(self, testData, testWeights, testLabels,
@@ -184,13 +211,28 @@ class DNN(NetWork):
             trainLabels = to_categorical(trainLabels)
             testLabels = to_categorical(testLabels)
 
-        print("--------------------------")
-        print(testLabels)
-        print("--------------------------")
-        self.modelEvaluation = self.network.evaluate(testData, testLabels)
+        self.modelEvaluationTest = self.network.evaluate(testData, testLabels)
 
-        print(self.modelEvaluation)
+        print(self.modelEvaluationTest)
 
+
+        stopEpoch, stopEpochMetrics = self.StopValues
+        lines = "Evaluation:\nStopped at epoch {0}\n".format(stopEpoch)
+        for iMetric, metric in enumerate(self.network.metrics_names):
+            thisLine = "{0} - Train {1:.3f} | Val {2:.3f} | Test {3:.3f} -- Ratio Train {4:.3f} | Ratio Val {5:.3f}".format(
+                metric,
+                stopEpochMetrics[metric],
+                stopEpochMetrics["val_"+metric],
+                self.modelEvaluationTest[iMetric],
+                stopEpochMetrics[metric]/self.modelEvaluationTest[iMetric],
+                stopEpochMetrics["val_"+metric]/self.modelEvaluationTest[iMetric]
+            )
+            logging.info(thisLine)
+            lines += thisLine+"\n"
+
+        with open("{0}/evalMetrics.txt".format(outputFolder), "w") as f:
+            f.write(lines)
+        
         preditionTest = self.network.predict(testData)
         preditionTrain = self.network.predict(trainData)
 

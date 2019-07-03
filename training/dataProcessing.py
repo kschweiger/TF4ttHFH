@@ -49,12 +49,13 @@ class Sample:
         ##### Add combined wightes to the dataframe
         # It is expected that all these weights are present in the dataset- even if they are all 1.0
         logging.warning("Trigger weight disabled")
+        df = df.assign(weight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
         if includeGenWeight:
             logging.warning("Will include xsec and nGen in train weight")
             logging.debug("Which are: xsec = %s and nGen = %s", self.xsec, self.nGen )
-            df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * self.xsec * (1/self.nGen))# * x.triggerWeight)
+            df = df.assign(eventWeight=lambda x: x.weight * 1000 * lumi * self.xsec * (1/self.nGen))
         else:
-            df = df.assign(eventWeight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
+            df = df.assign(eventWeight=lambda x: x.weight)
 
         #df = df.assign(eventWeightUnNorm=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
         logging.debug("Sample %s weight mean=%s", self.label, df["eventWeight"].mean())
@@ -98,6 +99,7 @@ class Data:
                  shuffleSeed=None, lumi=41.5, normalizedWeight=False, includeGenWeight=False):
         if testPercent > 1.0:
             raise ValueError("testPercent is required to be less than 1. Passed value = %s"%testPercent)
+        logging.debug("Using lumi = %s", lumi)
         trainDataframes = []
         classes = {}
         for sample in samples:
@@ -112,8 +114,8 @@ class Data:
         logging.debug("Number of events after concat = %s", df.shape[0])
 
         if normalizedWeight:
-            logging.debug("Scaling trainWeight by Events/nSamples - %s,%s", df.shape[0],len(samples))
-            df["trainWeight"] = df["trainWeight"]*df.shape[0]/len(samples)
+            logging.debug("nEvents = %s | sum Weights = %s | sum EventWeight = %s",df.shape[0], sum(df["weight"].values), sum(df["eventWeight"].values))
+            df["trainWeight"] = df["trainWeight"]*sum(df["weight"].values)/len(samples)
             logging.debug("Train weight mean= %s, std=%s", df["trainWeight"].mean(), df["trainWeight"].std())
         
         del trainDataframes

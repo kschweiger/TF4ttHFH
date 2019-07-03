@@ -42,7 +42,9 @@ class EvalConfig(ConfigReaderBase):
         self.plotAdditionalDisc = self.getList(self.readConfig.get("Plotting", "addDiscriminators"))
 
         self.loadTrainingData = self.readConfig.getboolean("General", "loadTrainingData")
-        
+
+        if self.loadTrainingData:
+            self.plotAdditionalDisc = []
         self.trainingAttr = None
         with open("{0}/network_attributes.json".format(self.trainingOutput), "r") as f:
             self.trainingAttr = json.load(f)
@@ -159,18 +161,29 @@ def evalDNN_binary(config, allSample, data, thisDNN):
         logging.info("Getting ROCs for %s", bkg)
         nSignal = len(predictions[config.signalSampleGroup][:,0])
         nBackgorund = len(predictions[bkg][:,0])
-        ROCPlotvals[bkg], AUCPlotvals[bkg] = getROCs(np.append(np.array(nSignal*[0]),
+        ROCPlotvals[bkg+"DNN"], AUCPlotvals[bkg+"DNN"] = getROCs(np.append(np.array(nSignal*[0]),
                                                                np.array(nBackgorund*[1])),
                                                      np.append(predictions[config.signalSampleGroup][:,0],
                                                                predictions[bkg][:,0]),
                                                      np.append(weights[config.signalSampleGroup],
                                                                weights[bkg]))
         
-        ROCPlotLabels.append("{0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg]))
+        ROCPlotLabels.append("DNN : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+"DNN"]))
+        for addDisc in config.plotAdditionalDisc:
+            ROCPlotvals[bkg+addDisc], AUCPlotvals[bkg+addDisc] = getROCs(np.append(np.array(nSignal*[0]),
+                                                                                   np.array(nBackgorund*[1])),
+                                                                         np.append(data[config.signalSampleGroup].getTestData(asMatrix=False)[addDisc].values,
+                                                                                   data[bkg].getTestData(asMatrix=False)[addDisc].values),
+                                                                         np.append(weights[config.signalSampleGroup],
+                                                                                   weights[bkg]))
+            
+                                                         
+            ROCPlotLabels.append("{3} : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+addDisc], addDisc))
 
     makeROCPlot(ROCPlotvals, AUCPlotvals,
                 output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "ROCs"),
-                passedLegend = ROCPlotLabels)
+                passedLegend = ROCPlotLabels,
+                colorOffset = 1)
         
 
 def evalDNN_categorical(config, allSample, data, thisDNN):
@@ -208,17 +221,32 @@ def evalDNN_categorical(config, allSample, data, thisDNN):
         logging.info("Getting ROCs for %s", bkg)
         nSignal = len(combinePredictions[config.signalSampleGroup])
         nBackgorund = len(combinePredictions[bkg])
-        ROCPlotvals[bkg], AUCPlotvals[bkg] = getROCs(np.append(np.array(nSignal*[0]),
+        ROCPlotvals[bkg+"DNN"], AUCPlotvals[bkg+"DNN"] = getROCs(np.append(np.array(nSignal*[0]),
                                                                np.array(nBackgorund*[1])),
                                                      np.append(combinePredictions[config.signalSampleGroup],
                                                                combinePredictions[bkg]),
                                                      np.append(weights[config.signalSampleGroup],
                                                                weights[bkg]))
-        ROCPlotLabels.append("{0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg]))
+        ROCPlotLabels.append("DNN : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+"DNN"]))
+        for addDisc in config.plotAdditionalDisc:
+            ROCPlotvals[bkg+addDisc], AUCPlotvals[bkg+addDisc] = getROCs(np.append(np.array(nSignal*[0]),
+                                                                   np.array(nBackgorund*[1])),
+                                                         np.append(data[config.signalSampleGroup].getTestData(asMatrix=False)[addDisc].values,
+                                                                   data[bkg].getTestData(asMatrix=False)[addDisc].values),
+                                                         np.append(weights[config.signalSampleGroup],
+                                                                   weights[bkg]))
+
+                                                         
+            ROCPlotLabels.append("{3} : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+addDisc], addDisc))
         
     makeROCPlot(ROCPlotvals, AUCPlotvals,
                 output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClass_ROCs"),
-                passedLegend = ROCPlotLabels)
+                passedLegend = ROCPlotLabels,
+                colorOffset = 1)
+
+def getBackgroundEstROC(DataROCVals, ttbarROCVals):
+    pass
+    
         
 def getCombinedPrediction(prediction, signalID, bkgIDs, bkgKappas=None):
     """ 

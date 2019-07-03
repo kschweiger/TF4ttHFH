@@ -137,7 +137,7 @@ def test_data_init(mocker, testData, testDataSmall):
     assert (data.fullDF["Var0"].values == unshuffeledDF["Var0"].values).all()
     
     assert data.trainVariables ==  ["Var0", "Var1", "Var2"]
-    assert data.allVariables == list(unshuffeledDF.columns)+["labelID", "eventWeight", "trainWeight", "lumiWeight"]
+    assert data.allVariables == list(unshuffeledDF.columns)+["labelID", "weight", "eventWeight", "trainWeight", "lumiWeight"]
     assert data.outputClasses == {"Sample0" : 0 , "Sample1" : 1}
 
 def test_data_init_execption(mocker, testData):

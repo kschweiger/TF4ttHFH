@@ -109,3 +109,6 @@ venv.bak/
 #Files
 *.pdf
 *.h5
+
+#Folders
+models/*
