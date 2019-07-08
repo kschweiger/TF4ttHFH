@@ -95,16 +95,17 @@ class TrainingConfig(ConfigReaderBase):
                                                       activationEncoderSide = self.readConfig.get(sectionName, "activationEncoderSide")))
         
         self.sampleInfos = {}
-        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype"])
+        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype","selection"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
                 raise KeyError("Sample %s not defined in config (as section) only defined in General.samples"%sample)
             self.sampleInfos[sample] = sampleTuple(input =  self.readConfig.get(sample, "input"),
-                                                    label =  self.readConfig.get(sample, "label"),
-                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
-                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
-                                                    datatype =  self.readConfig.get(sample, "datatype"))
+                                                   label =  self.readConfig.get(sample, "label"),
+                                                   xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
+                                                   nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
+                                                   datatype =  self.readConfig.get(sample, "datatype"),
+                                                   selection = self.setOptionWithDefault(sample, "selection", None))
         
         coderTuple = namedtuple("coderTuple", ["activation", "dimention"])
         self.encoder = coderTuple(activation =  (self.net.defaultActivationEncoder
@@ -152,7 +153,8 @@ def initialize(config, incGenWeights=False):
                 labelID = iSample,
                 xsec = config.sampleInfos[sample].xsec,
                 nGen = config.sampleInfos[sample].nGen,
-                dataType = config.sampleInfos[sample].datatype
+                dataType = config.sampleInfos[sample].datatype,
+                selection = config.sampleInfos[sample].selection,
             )
         )
         logging.info("Added Sample - %s",allSamples[iSample].getLabelTuple())

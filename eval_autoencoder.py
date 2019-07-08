@@ -68,7 +68,8 @@ class EvalConfig(ConfigReaderBase):
                                                    label =  self.readConfig.get(sample, "label"),
                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
-                                                   datatype =  self.readConfig.get(sample, "datatype"))
+                                                   datatype =  self.readConfig.get(sample, "datatype"),
+                                                   selection = self.setOptionWithDefault(sample, "selection", None))
 
         logging.debug("----- Config -----")
         logging.debug("trainingOutput: %s",self.trainingOutput)
@@ -85,6 +86,7 @@ class EvalConfig(ConfigReaderBase):
             logging.debug("    xsec: %s", self.sampleInfos[sample].xsec)
             logging.debug("    nGen: %s", self.sampleInfos[sample].nGen)
             logging.debug("    datatype: %s", self.sampleInfos[sample].datatype)
+            logging.debug("    selection: %s", self.sampleInfos[sample].selection)
             
 
             
@@ -104,7 +106,8 @@ def initialize(config, incGenWeights=False):
                     labelID = igroup,
                     xsec = config.sampleInfos[sample].xsec,
                     nGen = config.sampleInfos[sample].nGen,
-                    dataType = config.sampleInfos[sample].datatype
+                    dataType = config.sampleInfos[sample].datatype,
+                    selection = config.sampleInfos[sample].selection,
                 )
             )
             logging.info("Added Sample - %s",allSamples[group][iSample].getLabelTuple())

@@ -50,7 +50,10 @@ class ConfigReaderBase:
             elif getterType == "intlist":
                 return [int(x) for x in self.getList(self.readConfig.get(section, option))]
             else:
-                return self.readConfig.get(section, option)
+                if default is None and self.readConfig.get(section, option) == "None":
+                    return None
+                else:
+                    return self.readConfig.get(section, option)
         else:
             return default
 

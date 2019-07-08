@@ -60,7 +60,8 @@ def mockExpectationConfig():
                               "label" : "Sample2Label",
                               "xsec" : -1,
                               "nGen" : -1,
-                              "datatype" : "data"}
+                              "datatype" : "data",
+                              "selection" : "SomeSel"}
     expectation["NeuralNet"] = {"activation" : "relu",
                                 "outputActivation" : "softmax",
                                 "useWeightDecay" : False,
@@ -127,6 +128,7 @@ def test_config_required(mocker, configExpectationRequired):
         testConfig.sampleInfos[sample].xsec == 1.0
         testConfig.sampleInfos[sample].nGen == 1.0
         testConfig.sampleInfos[sample].datatype == configExpectationRequired[sample]["datatype"]
+        testConfig.sampleInfos[sample].selection == None
         
     assert testConfig.nLayers == 1
     
@@ -173,7 +175,11 @@ def test_config_all(mocker, mockExpectationConfig):
         testConfig.sampleInfos[sample].xsec == configExpectation[sample]["xsec"]
         testConfig.sampleInfos[sample].nGen == configExpectation[sample]["nGen"]
         testConfig.sampleInfos[sample].datatype == configExpectation[sample]["datatype"]
-
+        if "selection" in configExpectation[sample].keys():
+            testConfig.sampleInfos[sample].selection == configExpectation[sample]["selection"]
+        else:
+            testConfig.sampleInfos[sample].selection == None
+            
     assert testConfig.nLayers == len(configExpectation["NeuralNet"]["layerDimentions"].split(","))
 
     if True:

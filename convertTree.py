@@ -37,13 +37,17 @@ class Config(ConfigReaderBase):
 
         self.sampleName = self.readConfig.get("Sample", "name")
         cwd = os.getcwd()
-        self.fileList = cwd+"/"+self.readConfig.get("Sample", "path")
+        fileLists = self.getList(self.readConfig.get("Sample", "path"))
+        
+        self.fileList = [cwd+"/"+x for x in fileLists]
         self.files = []
-        with open(self.fileList, "r") as f:
-            data = f.read()
-            for line in data.split("\n"):
-                if ".root" in line:
-                    self.files.append(line)
+        for _file in self.fileList:
+            logging.debug("Getting files from %s", _file)
+            with open(_file, "r") as f:
+                data = f.read()
+                for line in data.split("\n"):
+                    if ".root" in line:
+                        self.files.append(line)
 
 
         self.sampleSelection = self.readConfig.get("Sample", "selection")

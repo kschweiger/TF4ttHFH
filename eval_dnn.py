@@ -23,6 +23,8 @@ from train_dnn import TrainingConfig
 from eval_autoencoder import initialize
 from utils.utils import initLogging, checkNcreateFolder, getROCs
 
+from keras import backend as K
+
 from plotting.plotUtils import make1DHistoPlot, makeROCPlot
 
 
@@ -72,7 +74,7 @@ class EvalConfig(ConfigReaderBase):
         self.lumi = self.readConfig.getfloat("General", "lumi")
                 
         self.sampleInfos = {}
-        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype"])
+        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
@@ -81,7 +83,8 @@ class EvalConfig(ConfigReaderBase):
                                                    label =  self.readConfig.get(sample, "label"),
                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
-                                                   datatype =  self.readConfig.get(sample, "datatype"))
+                                                   datatype =  self.readConfig.get(sample, "datatype"),
+                                                   selection =  self.setOptionWithDefault(sample, "selection", None))
 
         logging.debug("----- Config -----")
         logging.debug("trainingOutput: %s",self.trainingOutput)
@@ -190,13 +193,15 @@ def evalDNN_categorical(config, allSample, data, thisDNN):
     inputs, predictions, weights, labels, labelIDs = getValues(config, allSample, data, thisDNN)
     
     bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
-
+    trainbkgs = [g for g in labelIDs.keys() if g != config.signalSampleGroup]
+    
+    
     combinePredictions = {}
     for group in data.keys():
         logging.info("Getting combined prediction for %s", group)
         combinePredictions[group] = getCombinedPrediction(predictions[group],
                                                          labelIDs[config.signalSampleGroup],
-                                                         [labelIDs[b] for b in bkgs])
+                                                         [labelIDs[b] for b in trainbkgs])
     classLegend = []
     classValues = []
     classWeights = []

@@ -88,17 +88,19 @@ class TrainingConfig(ConfigReaderBase):
         self.nLayers = len(self.net.layerDimentions)
         
         self.sampleInfos = {}
-        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype"])
+        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
                 raise KeyError("Sample %s not defined in config (as section) only defined in General.samples"%sample)
             self.sampleInfos[sample] = sampleTuple(input =  self.readConfig.get(sample, "input"),
-                                                    label =  self.readConfig.get(sample, "label"),
-                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
-                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
-                                                    datatype =  self.readConfig.get(sample, "datatype"))
-
+                                                   label =  self.readConfig.get(sample, "label"),
+                                                   xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
+                                                   nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
+                                                   datatype = self.readConfig.get(sample, "datatype"),
+                                                   selection = self.setOptionWithDefault(sample, "selection", None))
+            
+            
 def trainDNN(config, batch=False):
     logging.debug("Output folder")
     checkNcreateFolder(config.output, onlyFolder=True)

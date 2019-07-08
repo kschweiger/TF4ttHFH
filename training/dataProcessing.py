@@ -15,7 +15,7 @@ class Sample:
     """
     Container loading h5 files (form convertTree) and prepares them to be used in the training
     """
-    def __init__(self, inFile, label, labelID, xsec=1.0, nGen=1.0, dataType="data"):
+    def __init__(self, inFile, label, labelID, xsec=1.0, nGen=1.0, dataType="data", selection=None):
         self.inFile = inFile
         self.label = label
         self.labelID = labelID
@@ -29,12 +29,19 @@ class Sample:
 
         self.data = None
         self.nEvents = -1
+        self.selection = selection
 
     def loadDataframe(self, selection=None, lumi=1.0, normalizedWeight=False, includeGenWeight=False):
         """ Function for loading the data from the file and adding combined weight variables to dataframe"""
         logging.info("Loading dartaframe from fole %s", self.inFile)
         df = pd.read_hdf(self.inFile)
 
+        if self.selection is not None:
+            if selection is None:
+                selection = self.selection
+            else:
+                selection = "{0} and {1}".format(selection, self.selection)
+        
         if selection is not None:
             logging.debug("Applying Selection")
             logging.debug("Events before selection: %s", df.shape[0])
