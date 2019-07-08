@@ -23,8 +23,7 @@ def transformDataframe(dataframe, variables):
     return transformedDataframe
 
 def getWeights(dataframe, addWeights=[]):
-    logging.warning("Trigger weight disabled")
-    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr"]#, "triggerWeight"]
+    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
     retWeight = None
     for weight in standardWeights+addWeights:
         if retWeight is None:
@@ -74,8 +73,11 @@ def generateVariableList(dataframe, whitelist, blacklist):
 def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True):
     """ Function for plotting the passed variable from all passed dataframes """
     # TODO: Implement weights
+    logging.info("Entering plotDataframeVars")
     assert len(dfNames) == len(dataframes)
+    logging.info("Getting fig and base")
     fig, base = plt.subplots(dpi=150)
+    logging.info("Got fig and base")
     if transform:
         binRange = (-4, 4)
 
@@ -83,6 +85,7 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
     listOfWeights = []
     texts = []
     for idf, fullDF in enumerate(dataframes):
+        logging.info("Getting values form df %s", idf)
         df = fullDF.loc[:, [variable]]
         if transform:
             df = transformDataframe(df, [variable])

@@ -215,7 +215,9 @@ class DNN(NetWork):
 
         print(self.modelEvaluationTest)
 
+        self.getInputWeights(variables, outputFolder)
 
+        
         stopEpoch, stopEpochMetrics = self.StopValues
         lines = "Evaluation:\nStopped at epoch {0}\n".format(stopEpoch)
         for iMetric, metric in enumerate(self.network.metrics_names):
@@ -350,3 +352,24 @@ class DNN(NetWork):
 
     def getPrediction(self, inputData):
         return self.network.predict(inputData)
+
+    def getInputWeights(self, variables, outputFolder):
+
+        firstLayer = self.network.layers[1]
+        weights = firstLayer.get_weights()[0]
+
+        self.varWeights = {}
+        for outWeights, variable in zip(weights, variables):
+            wSum = np.sum(np.abs(outWeights))
+            self.varWeights[variable] = float(wSum)
+
+        
+        fileNameRank = "variableRanking.txt"
+        logging.info("Saving ranking at: %s/%s",outputFolder, fileNameRank)
+        logging.info("================== Ranking ==================")
+        with open("%s/%s"%(outputFolder, fileNameRank), "w") as f:
+            for key, val in sorted(self.varWeights.items(), key = lambda item: item[1], reverse=True):
+                line = "  {0:>20} : {1:.3f}".format(key, val)
+                logging.info(line)
+                f.write(line+"\n")
+        logging.info("=============================================")
