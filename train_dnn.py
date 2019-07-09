@@ -161,7 +161,7 @@ def trainDNN(config, batch=False):
 
     #TODO: Make this configurable
     ROCMetrics = []
-    for metric in ["MEM", "Detaj_5"]:
+    for metric in ["MEM"]:
         ROCMetrics.append((metric, data.getTestData(asMatrix=False)[metric].values))
     
     logging.info("Model evaluation")

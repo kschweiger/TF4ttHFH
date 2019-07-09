@@ -189,7 +189,7 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                 colorOffset = 1)
         
 
-def evalDNN_categorical(config, allSample, data, thisDNN):
+def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):
     inputs, predictions, weights, labels, labelIDs = getValues(config, allSample, data, thisDNN)
     
     bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
@@ -206,7 +206,10 @@ def evalDNN_categorical(config, allSample, data, thisDNN):
     classValues = []
     classWeights = []
     for group in data.keys():
-        classLegend.append(group)
+        if printMean:
+            classLegend.append(group+" (Mean = {0:.2f})".format(combinePredictions[group].mean()))
+        else:
+            classLegend.append(group)
         classValues.append(combinePredictions[group])
         classWeights.append(weights[group])
         

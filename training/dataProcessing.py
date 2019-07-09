@@ -133,7 +133,8 @@ class Data:
         #Check if all passed trainVariables are valid
         for var in trainVariables:
             if var not in list(df.columns):
-                raise RuntimeError("Passed training variable %s not in df variables"%var)
+                errMSG = "Passed training variable %s not in df variables"%var
+                raise RuntimeError(errMSG)
 
         self.shuffleData = shuffleData
         self.shuffleSeed = shuffleSeed
