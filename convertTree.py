@@ -9,7 +9,7 @@ import logging
 from collections import namedtuple
 
 from preprocessing.dataset import Dataset
-from utils.utils import initLogging
+from utils.utils import initLogging, checkNcreateFolder
 #sys.path.insert(0, os.path.abspath('../utils/'))
 from utils.ConfigReader import ConfigReaderBase
 
@@ -112,6 +112,8 @@ def convertTree(config, treeName, category):
     """ Wrapper for the functionality of preprocessing.dataset  """
     logging.info("Starting conversion")
 
+    checkNcreateFolder(config.outputFolder)
+    
     datasetName = config.outputPrefix+"_"+config.sampleName+"_"+config.categories[category].name
     dataset = Dataset(datasetName, config.outputFolder, treeName)
 

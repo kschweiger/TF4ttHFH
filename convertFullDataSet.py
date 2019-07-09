@@ -4,6 +4,7 @@ Converter of flat ROOT::TTree to hdf5. Low overhead version of convertTree.py
 K. Schweiger, 2019
 """
 import os
+import sys
 import logging
 
 from collections import namedtuple
@@ -97,4 +98,4 @@ if __name__ == "__main__":
     args = parseArgs(sys.argv[1:])
     initLogging(args.log)
 
-    convertTree(args.inputs, args,output, args.name, args.treeName, args.indexVariables)
+    convertTree(args.inputs, args.output, args.name, args.treeName, args.indexVariables)
