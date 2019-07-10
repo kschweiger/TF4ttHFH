@@ -1,3 +1,8 @@
+"""
+Scrpit for creating a lookup table for predictions
+
+Use: python createlookup_dnn.py --mode models/dnnTesting_AllVars_Multi_ranking_8J_best15/ --input file_Run2Dev_v1p2/preprocData_Run2Dev_TR_v1_ttHbb_8J.h5  --output lookupTesting
+"""
 import sys
 import os
 import logging
@@ -19,7 +24,7 @@ from train_dnn import TrainingConfig
 def getModelDefinitions(path2Model):
     definitons = namedtuple("definitons", ["config", "transformations", "attributes", "trainingOutput"])
     
-    config = TrainingConfig("{0}/usedCOnfig.cfg".format(path2Model))
+    config = TrainingConfig("{0}/usedConfig.cfg".format(path2Model))
 
     trainingTransfromation = None
     with open("{0}/network_inputTransformation.json".format(path2Model), "r") as f:
@@ -34,7 +39,7 @@ def getModelDefinitions(path2Model):
                       attributes = trainingAttr,
                       trainingOutput = path2Model)
 
-def getSampleData(modelDefinitions, inputFile):
+def getSampleData(modelDefinitions, inputFile, selection=None):
     inputSample = Sample(inFile = inputFile,
                          label = "Input",
                          labelID = 1)
@@ -42,6 +47,7 @@ def getSampleData(modelDefinitions, inputFile):
     inputData = Data(samples = [inputSample],
                      trainVariables = modelDefinitions.config.trainingVariables,
                      testPercent = 1.0,
+                     selection = selection,
                      transform = False)
 
     inputData.transformations = modelDefinitions.transformations
@@ -97,17 +103,53 @@ def setupDNN(modelDefinitions):
 def writeLookupTable(outputData, outPath, outName):
     indices = outputData.index.names
     loopupTable = {}
+    iIndex = 0
+    totalLen = outputData.shape[0]
+    p25, p50, p75 = False, False, False
     for index, row in outputData.iterrows():
+        if iIndex == 0:
+            logging.info("Processed 0% of ouput data")
+        elif iIndex/totalLen > 0.25 and not p25:
+            logging.info("Processed 25% of ouput data")
+            p25 = True
+        elif iIndex/totalLen > 0.5 and not p50:
+            logging.info("Processed 50% of ouput data")
+            p50 = True
+        elif iIndex/totalLen > 0.75 and not p75:
+            logging.info("Processed 75% of ouput data")
+            p75 = True
         thisIndex = ":".join(str(x) for x in index)
         if thisIndex in  loopupTable.keys():
             raise RuntimeError("Indices should be unique")
         loopupTable[thisIndex] = row["DNNPred"]
-
+        iIndex += 1
+    logging.info("Processed 100% of ouput data")
     pickleOutputname = "{0}/{1}.pkl".format(outPath, outName)
     logging.info("Saving lookup table at %s", pickleOutputname)
     with open(pickleOutputname, "wb") as pickleOut:
         pickle.dump(loopupTable, pickleOut)
+
+def processData(model, inputFile, selection=None):
+    modelDefinitions = getModelDefinitions(model)
+
+    thisDNN = setupDNN(modelDefinitions)
     
+    inputSample, inputData = getSampleData(modelDefinitions, inputFile, selection)
+    
+    dfPrediction = getPredictions(thisDNN, modelDefinitions, inputSample, inputData)
+
+    return dfPrediction, inputSample, inputData
+
+def createLookup(model, inputFile, outputFolder):
+    checkNcreateFolder(outputFolder, onlyFolder=True)
+    
+    dfPrediction, _, _ = processData(model, inputFile)
+    
+    inputFileName = inputFile.split("/")[-1]
+    inputFileName = inputFileName.split(".")[0]
+    
+    writeLookupTable(dfPrediction, outputFolder, inputFileName)
+        
 def parseArgs(args):
     import argparse
     argumentparser = argparse.ArgumentParser(
@@ -145,22 +187,9 @@ def parseArgs(args):
     )
     
     return argumentparser.parse_args(args)
-
+    
 if __name__ == "__main__":
     args = parseArgs(sys.argv[1:])
     initLogging(args.log)
 
-    checkNcreateFolder(args.output, onlyFolder=True)
-    
-    modelDefinitions = getModelDefinitions(args.model)
-
-    thisDNN = setupDNN(modelDefinitions)
-    
-    inputSample, inputData = getSampleData(modelDefinitions, args.input)
-    
-    dfPrediction = getPredictions(thisDNN, modelDefinitions, inputSample, inputData)
-
-    inputFileName = args.input.split("/")[-1]
-    inputFileName = inputFileName.split(".")[0]
-    
-    writeLookupTable(dfPrediction, args.output, inputFileName)
+    createLookup(args.model, args.input, args.output)

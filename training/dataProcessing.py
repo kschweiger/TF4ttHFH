@@ -118,8 +118,14 @@ class Data:
 
         logging.debug("Concat dataframes")
         df = pd.concat(trainDataframes)
-        logging.debug("Number of events after concat = %s", df.shape[0])
+        nDF = df.shape[0]
+        logging.debug("Number of events after concat = %s", nDF)
 
+        
+        df = df[~df.index.duplicated(keep='first')]
+        if df.shape[0] != nDF:
+            logging.warning("Dropped %s events from dataframe",nDF-df.shape[0])
+        
         if normalizedWeight:
             logging.debug("nEvents = %s | sum Weights = %s | sum EventWeight = %s",df.shape[0], sum(df["weight"].values), sum(df["eventWeight"].values))
             df["trainWeight"] = df["trainWeight"]*sum(df["weight"].values)/len(samples)
