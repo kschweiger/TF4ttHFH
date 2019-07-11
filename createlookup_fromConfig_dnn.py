@@ -43,7 +43,8 @@ def processDataset(config, dataset):
     catPredictions = []
     
     _, inputDataFull = createlookup_dnn.getSampleData(createlookup_dnn.getModelDefinitions(config.catSettings[config.runCategories[0]]["model"]),
-                                                      config.datasets[dataset])
+                                                      config.datasets[dataset],
+                                                      doTransform = False)
     inputDataFull = inputDataFull.getTestData(asMatrix=False)
 
     for cat in config.runCategories:
@@ -62,7 +63,7 @@ def mergePredictions(inputDataFull, allPredictions):
     tdiff = t0
     for iPred, pred in enumerate(allPredictions):
         logging.info("Transferring prediction %s to input data",iPred)
-        finalDF.update(pred)
+        finalDF.update(pred["DNNPred"])
 
     logging.debug("Finished transfer of predictions")
     return finalDF

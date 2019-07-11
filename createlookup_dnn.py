@@ -39,7 +39,7 @@ def getModelDefinitions(path2Model):
                       attributes = trainingAttr,
                       trainingOutput = path2Model)
 
-def getSampleData(modelDefinitions, inputFile, selection=None):
+def getSampleData(modelDefinitions, inputFile, selection=None, doTransform=True):
     inputSample = Sample(inFile = inputFile,
                          label = "Input",
                          labelID = 1)
@@ -50,8 +50,9 @@ def getSampleData(modelDefinitions, inputFile, selection=None):
                      selection = selection,
                      transform = False)
 
-    inputData.transformations = modelDefinitions.transformations
-    inputData.doTransformation = True
+    if doTransform:
+        inputData.transformations = modelDefinitions.transformations
+        inputData.doTransformation = True
     
     return inputSample, inputData
                          
@@ -100,7 +101,7 @@ def setupDNN(modelDefinitions):
 
     return thisDNN
  
-def writeLookupTable(outputData, outPath, outName):
+def writeLookupTable(outputData, outPath, outName, addVars = ["MEM"]):
     indices = outputData.index.names
     loopupTable = {}
     iIndex = 0
@@ -121,13 +122,16 @@ def writeLookupTable(outputData, outPath, outName):
         thisIndex = ":".join(str(x) for x in index)
         if thisIndex in  loopupTable.keys():
             raise RuntimeError("Indices should be unique")
-        loopupTable[thisIndex] = row["DNNPred"]
+        thisData = {"DNNPred" : row["DNNPred"]}
+        for var in addVars:
+            thisData.update({var : row[var]})
+        loopupTable[thisIndex] = thisData
         iIndex += 1
     logging.info("Processed 100% of ouput data")
     pickleOutputname = "{0}/{1}.pkl".format(outPath, outName)
     logging.info("Saving lookup table at %s", pickleOutputname)
     with open(pickleOutputname, "wb") as pickleOut:
-        pickle.dump(loopupTable, pickleOut)
+        pickle.dump(loopupTable, pickleOut, protocol=2)
 
 def processData(model, inputFile, selection=None):
     modelDefinitions = getModelDefinitions(model)
