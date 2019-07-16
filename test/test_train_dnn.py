@@ -129,12 +129,12 @@ def test_config_required(mocker, configExpectationRequired):
     
     
     for sample in expectedSampels:
-        testConfig.sampleInfos[sample].input == configExpectationRequired[sample]["input"]
-        testConfig.sampleInfos[sample].label == configExpectationRequired[sample]["label"]
-        testConfig.sampleInfos[sample].xsec == 1.0
-        testConfig.sampleInfos[sample].nGen == 1.0
-        testConfig.sampleInfos[sample].datatype == configExpectationRequired[sample]["datatype"]
-        testConfig.sampleInfos[sample].selection == None
+        assert testConfig.sampleInfos[sample].input == configExpectationRequired[sample]["input"]
+        assert testConfig.sampleInfos[sample].label == configExpectationRequired[sample]["label"]
+        assert testConfig.sampleInfos[sample].xsec == 1.0
+        assert testConfig.sampleInfos[sample].nGen == 1.0
+        assert testConfig.sampleInfos[sample].datatype == configExpectationRequired[sample]["datatype"]
+        assert testConfig.sampleInfos[sample].selection == None
         
     assert testConfig.nLayers == 1
     

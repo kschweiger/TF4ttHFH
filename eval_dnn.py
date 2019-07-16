@@ -252,10 +252,6 @@ def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):
                 passedLegend = ROCPlotLabels,
                 colorOffset = 1)
 
-def getBackgroundEstROC(DataROCVals, ttbarROCVals):
-    pass
-    
-        
 def getCombinedPrediction(prediction, signalID, bkgIDs, bkgKappas=None):
     """ 
     Combining the output of all categorical classification output nodes

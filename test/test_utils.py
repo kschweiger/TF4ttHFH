@@ -7,7 +7,7 @@ import sys
 import os
 from types import SimpleNamespace
 import configparser
-
+import glob
  
 import uproot as root
 import pandas as pd
@@ -16,6 +16,9 @@ import copy
 
 from utils.ConfigReader import ConfigReaderBase
 from utils.utils import initLogging, reduceArray, getSigBkgArrays
+import utils.utils
+
+from utils.makeFileList import main as makeFileList
 
 import pytest
 
@@ -78,3 +81,16 @@ def test_getSigBkgArrays(inputArray, inputLabels, expectedArray):
     for iarray, array in enumerate(expectedArray):
         (array == retArrays[iarray]).all()
 
+
+def test_makefileList(mocker):
+    m = mocker.mock_open()
+    mocker.patch('builtins.open', m)
+    mocker.patch.object(utils.utils, "checkNcreateFolder", return_value=True)
+    mocker.patch.object(os,"makedirs", return_value = True)
+    fileSideEffects = ["folder1/file1.root", "folder1/file2.root"]
+    mocker.patch.object(glob, "glob", side_effect=[["folder1"], fileSideEffects])
+    makeFileList("/base/path/", "/output/path/")
+
+
+    callList = [mocker.call.write(file_+"\n") for file_ in fileSideEffects]
+    assert m().method_calls == callList

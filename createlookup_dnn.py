@@ -101,7 +101,7 @@ def setupDNN(modelDefinitions):
 
     return thisDNN
  
-def writeLookupTable(outputData, outPath, outName, addVars = ["MEM"]):
+def writeLookupTable(outputData, outPath, outName, addVars = ["MEM"], skipSave=False):
     indices = outputData.index.names
     loopupTable = {}
     iIndex = 0
@@ -128,10 +128,11 @@ def writeLookupTable(outputData, outPath, outName, addVars = ["MEM"]):
         loopupTable[thisIndex] = thisData
         iIndex += 1
     logging.info("Processed 100% of ouput data")
-    pickleOutputname = "{0}/{1}.pkl".format(outPath, outName)
-    logging.info("Saving lookup table at %s", pickleOutputname)
-    with open(pickleOutputname, "wb") as pickleOut:
-        pickle.dump(loopupTable, pickleOut, protocol=2)
+    if not skipSave:
+        pickleOutputname = "{0}/{1}.pkl".format(outPath, outName)
+        logging.info("Saving lookup table at %s", pickleOutputname)
+        with open(pickleOutputname, "wb") as pickleOut:
+            pickle.dump(loopupTable, pickleOut, protocol=2)
 
 def processData(model, inputFile, selection=None):
     modelDefinitions = getModelDefinitions(model)

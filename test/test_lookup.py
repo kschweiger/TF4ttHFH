@@ -15,7 +15,8 @@ import configparser
 import argparse
 
 from preprocessing.dataset import Dataset
-from createlookup_fromConfig_dnn import Config, parseArgs, mergePredictions
+import createlookup_dnn
+import createlookup_fromConfig_dnn
 
 import pytest
 
@@ -78,9 +79,9 @@ def data():
 
 def test_config(mocker, mockExpectationConfig):
     configExpectation, mockConfig = mockExpectationConfig        
-    mocker.patch.object(Config, "readConfig", return_value = mockConfig)
+    mocker.patch.object(createlookup_fromConfig_dnn.Config, "readConfig", return_value = mockConfig)
 
-    testconf = Config("/path/to/some/file.cfg")
+    testconf = createlookup_fromConfig_dnn.Config("/path/to/some/file.cfg")
     
     expectedCats = configExpectation["General"]["categories"].split(",")
     expectedDS = [x for x in configExpectation.keys() if not (x in expectedCats or x == "General")]
@@ -109,19 +110,28 @@ def test_config(mocker, mockExpectationConfig):
         assert testconf.catSettings[key]["model"] == expectedCatInfos[key]["model"]
         
 
-def test_parseArgs():
-    args = parseArgs(["--config","path/to/config"])
+def test_parseArgs_fromConfig():
+    args = createlookup_fromConfig_dnn.parseArgs(["--config","path/to/config"])
     assert isinstance(args, argparse.Namespace)
 
+def test_parseArgs():
+    args = createlookup_dnn.parseArgs(["--model","path/to/model/dir/", "--input","someInput","--output","SomeOutput"])
+    assert isinstance(args, argparse.Namespace)
+
+def test_writeLookupTable(data):
+    df1, df2, dfFull = data
+    createlookup_dnn.writeLookupTable(df1, "/output/path/", "OutputName", addVars=[], skipSave=True)
+    
+    
 def test_mergePrediction(data):
     df1, df2, dfFull = data
 
-    dfFullwDefault = mergePredictions(dfFull, [])
+    dfFullwDefault = createlookup_fromConfig_dnn.mergePredictions(dfFull, [])
 
     assert "DNNPred" in list(dfFullwDefault.columns)
     assert list(dfFullwDefault["DNNPred"]) == dfFull.shape[0]*[-1.0]
 
-    dfFullMerged = mergePredictions(dfFull, [df1, df2])
+    dfFullMerged = createlookup_fromConfig_dnn.mergePredictions(dfFull, [df1, df2])
 
     assert "DNNPred" in list(dfFullMerged.columns)
     assert list(dfFullMerged["DNNPred"]) != dfFull.shape[0]*[-1.0]

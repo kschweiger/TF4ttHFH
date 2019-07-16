@@ -3,7 +3,7 @@ import os
 import glob
 import logging
 
-from utils import initLogging, checkNcreateFolder
+from utils.utils import initLogging, checkNcreateFolder
 
 def main(base, output):
     logging.info("Got base: %s", base)
@@ -17,6 +17,7 @@ def main(base, output):
         logging.info("Will create file: %s", outName)
         with open(outName, "w") as f:
             for _file in glob.glob(folder+"/*.root"):
+                logging.debug("Found file %s", _file)
                 f.write(_file+"\n")
 
 if __name__ == "__main__":
