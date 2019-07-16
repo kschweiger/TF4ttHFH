@@ -195,9 +195,9 @@ def test_checkInputData_getWeights():
             "genWeight" : np.array(size*[2.0]),
             "btagWeight_shape" : np.array(size*[3.0]),
             "weight_CRCorr" : np.array(size*[4.0]),
-#            "triggerWeight" : np.array(size*[5.0])
+            "triggerWeight" : np.array(size*[5.0])
     }
-    expected = 1.0 * 2.0 * 3.0 * 4.0 #* 5.0
+    expected = 1.0 * 2.0 * 3.0 * 4.0 * 5.0
     df = pd.DataFrame(data)
     df.set_index(["evt","run","lumi"], inplace=True)
     weights = plotting.checkInputData.getWeights(df)

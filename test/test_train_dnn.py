@@ -125,7 +125,7 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.StoppingPatience == 0
     assert not testConfig.net.dropoutAll
     assert not testConfig.net.dropoutOutput
-    assert testConfig.net.dropoutPercent == 0.5
+    assert testConfig.net.dropoutPercent == 0.2
     
     
     for sample in expectedSampels:

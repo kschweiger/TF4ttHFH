@@ -44,7 +44,7 @@ def testData(means = (10, 12, 7), stddev = (2, 1.5, 1)):
 @pytest.fixture(scope="module")
 def testDataSmall(means = (9, 5, 14), stddev = (2, 1.5, 1)):
     size = 200
-    data = {"evt" :  np.arange(size),
+    data = {"evt" :  np.arange(size)+10000,
             "run" :  np.arange(size),
             "lumi" :  np.arange(size),
             "puWeight" : np.array(size*[1.0]),
