@@ -75,7 +75,10 @@ def mockExpectationConfig():
                                 "loss" : "categorical_crossentropy",
                                 "batchSize" : 128,
                                 "doEarlyStopping" : True,
-                                "patience" : 25}    
+                                "patience" : 25,
+                                "dropoutAll" : True,
+                                "dropoutOutput" : True,
+                                "dropoutPercent" : 0.2}    
     
 
     config['General'] = expectation["General"]
@@ -120,7 +123,10 @@ def test_config_required(mocker, configExpectationRequired):
     assert testConfig.net.batchSize == 128
     assert testConfig.net.doEarlyStopping == False
     assert testConfig.net.StoppingPatience == 0
-
+    assert not testConfig.net.dropoutAll
+    assert not testConfig.net.dropoutOutput
+    assert testConfig.net.dropoutPercent == 0.5
+    
     
     for sample in expectedSampels:
         testConfig.sampleInfos[sample].input == configExpectationRequired[sample]["input"]
@@ -167,8 +173,9 @@ def test_config_all(mocker, mockExpectationConfig):
     assert testConfig.net.batchSize == int(configExpectation["NeuralNet"]["batchSize"])
     assert testConfig.net.doEarlyStopping == configExpectation["NeuralNet"]["doEarlyStopping"]
     assert testConfig.net.StoppingPatience == int(configExpectation["NeuralNet"]["patience"])
-
-    
+    assert testConfig.net.dropoutAll == configExpectation["NeuralNet"]["dropoutAll"]
+    assert testConfig.net.dropoutOutput == configExpectation["NeuralNet"]["dropoutOutput"]
+    assert testConfig.net.dropoutPercent == configExpectation["NeuralNet"]["dropoutPercent"]
     for sample in expectedSampels:
         testConfig.sampleInfos[sample].input == configExpectation[sample]["input"]
         testConfig.sampleInfos[sample].label == configExpectation[sample]["label"]

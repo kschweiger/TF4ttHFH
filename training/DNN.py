@@ -6,7 +6,7 @@ import os
 import numpy as np
 import pickle
 
-from keras.layers import Input, Dense
+from keras.layers import Input, Dense, Dropout
 from keras.models import Model, load_model
 from keras import regularizers, losses, callbacks, optimizers, metrics, initializers
 from keras.utils import plot_model, print_summary, to_categorical
@@ -57,12 +57,14 @@ class DNN(NetWork):
         self.net = None
 
         self.isBinary = False
+        self.dropoutSeed = None
+        
         
         self.name = "%s"%identifier
         self.name += "_wDecay" if self.useWeightDecay else ""
 
 
-    def buildModel(self, nClasses=2, plot=False):
+    def buildModel(self, nClasses=2, plot=False, dropoutAll=False, dropoutOutput=False, dropoutPercent = 0.5):
         """ Building the network """
         logging.debug("Got nClasses = %s", nClasses)
         kernelRegulizer = regularizers.l2(self.weightDecayLambda) if self.useWeightDecay else regularizers.l1(0.)
@@ -73,20 +75,26 @@ class DNN(NetWork):
             logging.warning("Setting DNN to bianry classification")
             self.isBinary = True
 
-        hiddenLayers = {}
+        hiddenLayers = []
         layersSet = 0
         for iLayer in range(self.nLayer):
-            hiddenLayers[iLayer] =  Dense(self.layerDimention[iLayer],
-                                          kernel_initializer=self.LayerInitializerKernel,
-                                          bias_initializer=self.LayerInitializerBias,
-                                          activation=self.activation,
-                                          kernel_regularizer=kernelRegulizer,
-                                          name = "hiddenLayer_"+str(iLayer))
+            hiddenLayers.append(
+                Dense(self.layerDimention[iLayer],
+                      kernel_initializer=self.LayerInitializerKernel,
+                      bias_initializer=self.LayerInitializerBias,
+                      activation=self.activation,
+                      kernel_regularizer=kernelRegulizer,
+                      name = "hiddenLayer_"+str(iLayer)
+                )
+            )
             logging.info("Setting hidden encoder layer %s with", layersSet)
             logging.info("  Dimention %s | Activation %s",
                          self.layerDimention[iLayer],
                          self.activation)
             logging.info("  regualizer %s | name %s", kernelRegulizer,"hiddenEncoderLayer_"+str(iLayer))
+            if dropoutAll or (dropoutOutput and iLayer == self.nLayer-1):
+                logging.info("Adding dropout layer with percent %s", dropoutPercent)
+                hiddenLayers.append(Dropout(dropoutPercent, seed=self.dropoutSeed))
             layersSet += 1
 
 
@@ -99,7 +107,7 @@ class DNN(NetWork):
                             name = "outputLayer")
 
 
-        for iLayer in range(self.nLayer):
+        for iLayer in range(len(hiddenLayers)):
             if iLayer == 0:
                 network = hiddenLayers[iLayer](inputLayer)
             else:

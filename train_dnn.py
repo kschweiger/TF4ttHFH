@@ -64,7 +64,8 @@ class TrainingConfig(ConfigReaderBase):
                                            "useWeightDecay", "weightDecayLambda", "name",
                                            "layerDimentions", "inputDimention", "trainEpochs",
                                            "loss", "validationSplit", "optimizer", "batchSize",
-                                           "doEarlyStopping", "StoppingPatience"])
+                                           "doEarlyStopping", "StoppingPatience", "dropoutAll",
+                                           "dropoutOutput", "dropoutPercent"])
         
         self.net = netTuple(
             activation = self.readConfig.get("NeuralNet", "activation"),
@@ -80,7 +81,10 @@ class TrainingConfig(ConfigReaderBase):
             optimizer =  self.readConfig.get("NeuralNet", "optimizer"),
             batchSize = self.setOptionWithDefault("NeuralNet", "batchSize", 128, "int"),
             doEarlyStopping = self.setOptionWithDefault("NeuralNet", "doEarlyStopping", False, "bool"),
-            StoppingPatience =  self.setOptionWithDefault("NeuralNet", "patience", 0, "int")
+            StoppingPatience =  self.setOptionWithDefault("NeuralNet", "patience", 0, "int"),
+            dropoutAll = self.setOptionWithDefault("NeuralNet", "dropoutAll", False, "bool"),
+            dropoutOutput = self.setOptionWithDefault("NeuralNet", "dropoutOutput", False, "bool"),
+            dropoutPercent = self.setOptionWithDefault("NeuralNet", "dropoutPercent", 0.2, "float"),
         )
 
         logging.debug("Get layer dimentions: %s",self.net.layerDimentions)
@@ -130,9 +134,15 @@ def trainDNN(config, batch=False):
 
     logging.info("Building model")
     if config.net.loss == "binary_crossentropy":
-        thisDNN.buildModel(nClasses = 1)
+        thisDNN.buildModel(nClasses = 1,
+                           dropoutAll = config.net.dropoutAll,
+                           dropoutOutput = config.net.dropoutOutput,
+                           dropoutPercent = config.net.dropoutPercent)
     else:
-        thisDNN.buildModel(nClasses = len(data.outputClasses))
+        thisDNN.buildModel(nClasses = len(data.outputClasses),
+                           dropoutAll = config.net.dropoutAll,
+                           dropoutOutput = config.net.dropoutOutput,
+                           dropoutPercent = config.net.dropoutPercent)
     logging.info("Compiling model")
     thisDNN.compileModel()
 
