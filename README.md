@@ -1,4 +1,4 @@
-![Coverage](https://img.shields.io/badge/pytest--cov-64%25-yellow.svg?longCache=true&style=flat-square)
+![Coverage](https://img.shields.io/badge/pytest--cov-65%25-yellow.svg?longCache=true&style=flat-square)
 ![Tests](https://img.shields.io/badge/Test%20passing-true-green.svg?longCache=true&style=flat-square)
 # TF4ttHFH
 

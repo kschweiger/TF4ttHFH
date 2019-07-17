@@ -3,7 +3,7 @@ Collection of util functions (and classes)
 
 K. Schweiger, 2019
 """
-import logging
+import coloredlogs, logging
 import os
 import sys
 
@@ -29,12 +29,17 @@ def initLogging(thisLevel):
         thisLevel = logging.CRITICAL
     else:
         thisLevel = logging.NOTSET
-    
-    logging.basicConfig(
-        format=log_format,
-        level=thisLevel,
-    )
 
+
+    # logging.basicConfig(
+    #     format=log_format,
+    #     level=thisLevel,        
+    # )
+
+    coloredlogs.install(
+        level=thisLevel,
+        fmt = log_format
+    )
     return True
 
 def checkNcreateFolder(path, onlyFolder=False):

@@ -57,6 +57,7 @@ class TrainingConfig(ConfigReaderBase):
         self.SuffleSeed = self.setOptionWithDefault("General", "SuffleSeed", None, "str")
 
         self.selection = None if self.selection == "None" else self.selection
+        logging.debug("Get selection: %s", self.selection)
         if self.SuffleSeed is not None:
             self.SuffleSeed = None if self.SuffleSeed == "None"  else int(self.SuffleSeed)
         

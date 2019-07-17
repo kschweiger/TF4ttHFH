@@ -154,7 +154,7 @@ class DNN(NetWork):
             logging.info("Converting labels to categorical")
             trainingLabels = to_categorical(trainingLabels)
             
-        print(trainingData, trainingLabels)
+        #print(trainingData, trainingLabels)
         self.trainedModel = self.network.fit(trainingData, trainingLabels,
                                              batch_size = self.batchSize,
                                              epochs = epochs,
