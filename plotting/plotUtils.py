@@ -9,7 +9,7 @@ import numpy as np
 def getColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True):
+def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True, drawCMS = "Preliminary", drawLumi = 10.00):
     fig, base = plt.subplots(dpi=150)
     for iVal, values in enumerate(listOfValues):
         if listOfWeights is not None:
@@ -34,6 +34,22 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
     base.set_xlim(binRange)
     base.grid(False)
     base.legend(legendEntries)
+    if drawCMS is not None:
+        if isinstance(drawCMS, str):
+            base.text(0.0, 1.01, "CMS", transform=base.transAxes,
+                      fontsize="xx-large", fontweight = "bold")
+            base.text(0.12, 1.01, drawCMS, transform=base.transAxes,
+                      fontsize="large", fontstyle = "italic") 
+        else:
+            raise TypeError("Pass string for drawCMS")
+    if drawLumi is not None:
+        if isinstance(drawLumi, float):
+            base.text(0.87
+                      , 1.01, "{0:.1f}".format(drawLumi)+" fb$^{-1}$",
+                      transform=base.transAxes,
+                      fontsize="medium")
+        else:
+            raise TypeError("Pass float for drawLumi")
     if text is not None:
         if isinstance(text, str):
             base.text(0, 1.02, text, transform=base.transAxes)
@@ -45,6 +61,7 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
                 ypos -= 0.06
         else:
             raise NotImplementedError("Pass list or strings as text")
+
     logging.info("Saving file: {0}".format(output+".pdf"))
     if savePDF:
         plt.savefig(output+".pdf")

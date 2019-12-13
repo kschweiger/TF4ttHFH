@@ -1,12 +1,14 @@
 #!/bin/bash
 COMMAND="python convertTree.py "
 OUTFOLDER=$1
-INPREFIX=$2
+INFOLDER=$2
+INPREFIX=$3
 
-SEARCHFOLDER="data/*$INPREFIX*.cfg"
+
+SEARCHFOLDER="$INFOLDER/*$INPREFIX*.cfg"
 
 for FILE in ${SEARCHFOLDER}
 do
-    echo "${COMMAND} --output ${OUTFOLDER} --config ${FILE} &>> convert${INPREFIX}.log"
-    ${COMMAND} --output ${OUTFOLDER} --config ${FILE} &>> convert${INPREFIX}.log
+    echo "${COMMAND} --output ${OUTFOLDER} --config ${FILE} >> convert${INPREFIX}.log 2>&1"
+    ${COMMAND} --output ${OUTFOLDER} --config ${FILE} >> convert${INPREFIX}.log 2>&1
 done

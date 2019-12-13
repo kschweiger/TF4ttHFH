@@ -48,6 +48,18 @@ def testDataTwo(means = (10.5, 10, 7.1), stddev = (2.3, 2, 0.7)):
     return getNormalDataframe(names, means, stddev, size)
 
 @pytest.fixture(scope="module")
+def testDataThree(means = (1, 1, 1), stddev = (1, 1, 1)):
+    size = 100
+    names = []
+    for i in range(len(means)):
+        names.append("Var"+str(i))
+        names.append("Bar"+str(i))
+        names.append("Vbr"+str(i))
+    return getNormalDataframe(names, 3*means, 3*stddev, size)
+
+
+
+@pytest.fixture(scope="module")
 def mockExpectationConfig():
     config = configparser.ConfigParser()
     expectation = {}
@@ -81,6 +93,40 @@ def test_generateVariableList_expections(testDataOne):
     with pytest.raises(KeyError):
         plotting.checkInputData.generateVariableList(testDataOne, ["Var0", "someRandomName"], [])
 
+
+def test_generateVariableList_blackListWildcards_atStart(testDataThree):
+    expectedColumns = []
+    for c in testDataThree.columns:
+        if not c.endswith("0"):
+            expectedColumns.append(c)
+           
+    assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["*0"]) == expectedColumns
+
+def test_generateVariableList_blackListWildcards_atEnd(testDataThree):
+    expectedColumns = []
+    for c in testDataThree.columns:
+        if not c.startswith("Bar"):
+            expectedColumns.append(c)
+           
+    assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["Bar*"]) == expectedColumns
+
+def test_generateVariableList_blackListWildcards_in(testDataThree):
+    expectedColumns = []
+    for c in testDataThree.columns:
+        if not "ar" in c:
+            expectedColumns.append(c)
+           
+    assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["*ar*"]) == expectedColumns
+
+def test_generateVariableList_blackListWildcards_exceptions(testDataThree):
+    with pytest.raises(RuntimeError): 
+        assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["0*0"])
+    with pytest.raises(RuntimeError): 
+        assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["*0*0*"])
+    with pytest.raises(RuntimeError): 
+        assert plotting.checkInputData.generateVariableList(testDataThree, ["All"], ["*0*0"])
+
+        
 def test_plotDataframeVars(mocker, testDataOne, testDataTwo):
     mocker.patch("plotting.checkInputData.getWeights", side_effect=[pd.DataFrame(np.array((testDataOne.shape[0])*[1.0])),
                                                                     pd.DataFrame(np.array((testDataTwo.shape[0])*[1.0]))])

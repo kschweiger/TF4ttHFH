@@ -5,6 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
+import copy
 
 from itertools import permutations
 sys.path.insert(0, os.path.abspath('../'))
@@ -23,7 +24,15 @@ def transformDataframe(dataframe, variables):
     return transformedDataframe
 
 def getWeights(dataframe, addWeights=[]):
-    standardWeights = ["puWeight", "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
+    thisPUWeight = None
+    if "puWeight" in dataframe:
+        thisPUWeight = "puWeight"
+    elif "weightPURecalc" in dataframe:
+        thisPUWeight = "weightPURecalc"
+    else:
+        raise KeyError("No valid PU weight found")
+    
+    standardWeights = [thisPUWeight, "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
     retWeight = None
     for weight in standardWeights+addWeights:
         if retWeight is None:
@@ -43,7 +52,7 @@ def getWeights(dataframe, addWeights=[]):
 
 def generateVariableList(dataframe, whitelist, blacklist):
     """
-    Function for generating the variable list.
+    Function for generating the variable list. Blacklist also accepts wildcard "*"'s but only if they are used as first of last char. 
     
     Args:
       dataframe (pd.Dataframe) : Input dataframe
@@ -63,14 +72,44 @@ def generateVariableList(dataframe, whitelist, blacklist):
             if var not in allColumns:
                 raise KeyError("Variable %s not in dataframe columns"%var)
 
-    for var in blacklist:
-        if var in whitelist:
-            whitelist.remove(var)
+
+    _whitelist = copy.copy(whitelist)
+    for blackVar in blacklist:
+        if blackVar in _whitelist:
+            whitelist.remove(blackVar)
+            continue
+        if "*" in blackVar:
+            if blackVar.count("*") == 1:
+                if blackVar.endswith("*"):
+                    query = blackVar.replace("*","")
+                    for whiteVar in _whitelist:
+                        if whiteVar.startswith(query):
+                            whitelist.remove(whiteVar)
+                elif blackVar.startswith("*"):
+                    query = blackVar.replace("*","")
+                    #logging.debug("blackVar %s, Query %s", blackVar, query)
+                    for whiteVar in _whitelist:
+                        if whiteVar.endswith(query):
+                            #logging.debug("Removing: %s", whiteVar)
+                            whitelist.remove(whiteVar)
+                else:
+                    raise RuntimeError("Only Wildcards in the beginning or end of the string are supported")
+            elif blackVar.count("*") == 2:
+                if blackVar.startswith("*") and blackVar.endswith("*"):
+                    query = blackVar.replace("*","")
+                    for whiteVar in _whitelist:
+                        if query in whiteVar:
+                            whitelist.remove(whiteVar)
+                else:
+                    raise RuntimeError("Only 2 wildcard blacklist items are supported that start and end with *")    
+            else:
+                raise RuntimeError("Only blacklist wildcards with less than 3 are supported")
+    
 
     logging.debug("Resulting whitelist = %s", whitelist)
     return whitelist
 
-def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True):
+def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True, drawStats=True, lumi=None):
     """ Function for plotting the passed variable from all passed dataframes """
     # TODO: Implement weights
     logging.info("Entering plotDataframeVars")
@@ -97,17 +136,27 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
         logging.debug("Mean weight : %s (%s)", weights.mean(), dfNames[idf] )
         listOfWeights.append(weights)
         listOfValues.append(var)
-        texts.append("Mean: {0:.2f}, std: {1:.2f}".format((var*weights).mean(), (var*weights).std()))
+        texts.append("$\mu$: {0:.3f}, $\sigma$: {1:.3f}".format((var*weights).mean(), (var*weights).std()))
+    legendStuff = []
+    if drawStats:
+        #print(dfNames, texts)
+        for iName in range(len(dfNames)):
+            legendStuff.append("{0}\n{1}".format(dfNames[iName], texts[iName]))
+    else:
+        legendStuff = dfNames
+        
     #listOfWeights = None
     return make1DHistoPlot(listOfValues, listOfWeights,
                            output=output,
                            nBins=nBins,
                            binRange=binRange,
                            varAxisName=varAxisName,
-                           legendEntries=dfNames,
+                           legendEntries=legendStuff,
                            normalized=normalized,
-                           text=texts,
-                           xtextStart=0.25,
+                           #text=texts,
+                           #xtextStart=0.25,
+                           drawCMS = "Preliminary",
+                           drawLumi = lumi,
                            savePDF=savePDF)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
@@ -127,7 +176,7 @@ def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTit
     weights = getWeights(dataframe)
     weights = weights.to_numpy()
     weights = weights[:, 0]
-    print(weights)
+    #print(weights)
     
     if transform:
         binRange1 = (-4, 4)
@@ -199,7 +248,7 @@ def getCorrealtions(styleConfig, dataframe, outputPath, processVars, transform=F
     logging.info("Exiting function")
     return True
 
-def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False):
+def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False, lumi=None):
     """ 
     Function for plotting 1D distribution comparsions for all passed Dataframes 
     
@@ -215,7 +264,7 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
     assert len(inputNames) == len(inputDataframes)
     for i in range(len(inputDataframes)):
         inputNames[i] = "{0} ({1})".format(inputNames[i], inputDataframes[i].shape[0])
-    print(inputNames)
+    #print(inputNames)
     for variable in processVars:
         logging.info("Processing variable %s", variable)
         plotDataframeVars(
@@ -228,7 +277,8 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
             varAxisName = styleConfig.style[variable].axisName,
             normalized = drawNormalized,
             transform = transform,
-            savePDF = True
+            savePDF = True,
+            lumi = lumi,
         )
         
     logging.info("Exiting function")
@@ -338,6 +388,13 @@ def parseArgs(args):
         help="Styleconfig path",
         default = None
     )
+    argumentparser.add_argument(
+        "--lumi",
+        action="store",
+        type=float,
+        help="Lumi using in the plot as lumi label",
+        default = None
+    )
     
     return argumentparser.parse_args(args)
 
@@ -376,7 +433,7 @@ def process(args, styleConfig):
     if len([filename for filename in args.input if filename.startswith("merge") ]) == 1:
         mergedName, mergedDF, weightedDFs = mergeDatasets(args, vars2Process)
 
-        print(mergedDF)
+        #print(mergedDF)
         inputDFs = inputDFs + [mergedDF]
 
         if args.inputNames is not None:
@@ -406,7 +463,7 @@ def process(args, styleConfig):
         logging.info("Will plot distributions")
         thisOutput = args.output+"_dist_"
         checkNcreateFolder(thisOutput)
-        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized, args.transform)
+        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized, args.transform, args.lumi)
             
 if __name__ == "__main__":
     args = parseArgs(sys.argv[1:])
@@ -416,3 +473,10 @@ if __name__ == "__main__":
     styleConfig = StyleConfig(args.style)
 
     process(args, styleConfig)
+
+    output_ = "/".join(args.output.split("/")[0:-1])
+    
+    with open("{0}/plotCommand.txt".format(output_),"w") as f:
+        f.write("python "+" ".join(sys.argv))
+
+    

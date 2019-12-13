@@ -180,7 +180,7 @@ if __name__ == "__main__":
         nargs="+",
         type=str,
         help="Additonal Variables that can be set on runtime",
-        default=["njets", "nBDeepCSVM", "nBDeepCSVL"]
+        default=["njets", "nBDeepFlavM", "nBDeepFlavL"]
     )
     argumentparser.add_argument(
         "--indexVariables",
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         nargs="+",
         type=str,
         help="Variables that are used for indexing",
-        default=["evt", "run", "lumi"]
+        default=["event", "run", "lumi"]
     )
     argumentparser.add_argument(
         "--categories",
