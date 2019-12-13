@@ -106,7 +106,7 @@ class TrainingConfig(ConfigReaderBase):
                                                    selection = self.setOptionWithDefault(sample, "selection", None))
             
             
-def trainDNN(config, batch=False):
+def trainDNN(config, batch=False, addMetrics=["MEM"]):
     logging.debug("Output folder")
     checkNcreateFolder(config.output, onlyFolder=True)
     logging.debug("Copying used config to outputfolder")
@@ -147,7 +147,7 @@ def trainDNN(config, batch=False):
     logging.info("Compiling model")
     thisDNN.compileModel()
 
-    thisDNN.network.summary()
+    thisDNN.network.summary(print_fn=logging.warning)
     if not batch:
         input("Press ret")
 
@@ -172,7 +172,9 @@ def trainDNN(config, batch=False):
 
     #TODO: Make this configurable
     ROCMetrics = []
-    for metric in ["MEM"]:
+    if (len(addMetrics) == 1 and addMetrics[0] == ""):
+        addMetrics = []
+    for metric in addMetrics:
         ROCMetrics.append((metric, data.getTestData(asMatrix=False)[metric].values))
     
     logging.info("Model evaluation")
@@ -192,7 +194,7 @@ def trainDNN(config, batch=False):
     
         
 def main(args, config):
-    trainDNN(config, batch=args.batchMode)
+    trainDNN(config, batch=args.batchMode, addMetrics=args.addMetrics)
     
 def parseArgs(args):
     import argparse
@@ -222,6 +224,13 @@ def parseArgs(args):
     argumentparser.add_argument(
         "--stopEarly",
         action="store_true",
+    )
+    argumentparser.add_argument(
+        "--addMetrics",
+        action="store",
+        nargs="+",
+        help="Additional Metrics for evaluation",
+        default=["MEM"]
     )
     return argumentparser.parse_args(args)
 

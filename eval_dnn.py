@@ -41,8 +41,11 @@ class EvalConfig(ConfigReaderBase):
         self.plottingBins = self.readConfig.getint("Plotting","nBins")
         self.plottingRangeMin = self.readConfig.getfloat("Plotting","binRangeMin")
         self.plottingRangeMax = self.readConfig.getfloat("Plotting","binRangeMax")
-        self.plotAdditionalDisc = self.getList(self.readConfig.get("Plotting", "addDiscriminators"))
-
+        self.plotAdditionalDisc = self.setOptionWithDefault("Plotting", "addDiscriminators", None)
+        if self.plotAdditionalDisc is None:
+            self.plotAdditionalDisc = []
+        else:
+            self.plotAdditionalDisc = self.getList(self.plotAdditionalDisc)
         self.loadTrainingData = self.readConfig.getboolean("General", "loadTrainingData")
 
         if self.loadTrainingData:
