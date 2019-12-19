@@ -107,6 +107,21 @@ def test_Dataset_setOutputBranches(mockTree):
 
     assert expectedBranches == newDataset.outputBranches and newDataset.outputBranchesSet
 
+def test_Dataset_cleanBranchList(mockTree):
+    newDataset = Dataset("someName")    
+    inBrList = [br.decode(newDataset.encoding) for br in mockTree.keys()]
+    newDataset.filesAdded = True
+    newDataset.branches = inBrList
+    
+    expectedBranches = inBrList[0:1]
+
+    newDataset.setOutputBranches(expectedBranches)
+
+    assert expectedBranches == newDataset.outputBranches
+    newDataset.cleanBranchList([expectedBranches[0]])
+    expectedBranches.remove(expectedBranches[0])
+    assert expectedBranches == newDataset.outputBranches
+    
 def test_Dataset_resolveWildcardBranch_expection():
     newDataset = Dataset("someName") 
     with pytest.raises(RuntimeError):
@@ -201,7 +216,7 @@ def test_Dataset_getSelectedDataframe(sampleSel, sel, mockTree, mocker):
 
     assert selectedDF.equals(dataframe)
 
-
+   
 def test_Dataset_process(mockTree, mocker):
     newDataset = Dataset("someName")
 
@@ -249,3 +264,29 @@ def test_Dataset_process(mockTree, mocker):
     outputDF = newDataset.process(skipOutput = True)
     
     assert outputDF.equals(expected)
+
+
+def test_Dataset_addFlatSFtoDataframe(mockTree, mocker):
+    SFName = "flatSF"
+    SF = 1.2
+    inputDF = copy.deepcopy(mockTree.dataframe)
+    expected = copy.deepcopy(mockTree.dataframe)
+    expected["flatSF"] = len(expected)*[SF]
+    print(expected)
+
+    newDataset = Dataset("someName")
+    newDataset.setSF(SF, SFName)
+    newDataset.addFlatSFtoDataframe(inputDF)
+    assert expected.equals(inputDF)
+
+def test_Dataset_addFlatSFtoDataframe_exceptions(mockTree, mocker):
+    newDataset = Dataset("someName")
+    inputDF = copy.deepcopy(mockTree.dataframe)
+    with pytest.raises(RuntimeError):
+        newDataset.addFlatSFtoDataframe(inputDF)
+    
+    with pytest.raises(TypeError):
+        newDataset.setSF("Hallo", "OkayName")
+    with pytest.raises(TypeError):
+        newDataset.setSF(1.2, [])
+    

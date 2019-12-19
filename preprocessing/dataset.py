@@ -33,6 +33,10 @@ class Dataset:
         self.selection = ""
         self.sampleSelection = ""
 
+        self.SFSet = False
+        self.SF = None
+        self.SFName = None
+        
         #Input
         self.filesAdded = False
         self.files = None
@@ -42,6 +46,7 @@ class Dataset:
         self.outputBranchesSet = False
         self.outputBranches = []
         self.outputIndex = None
+        self.ignoreBranches = []
 
     def process(self, maxEvents=999999, skipOutput=False):
         """
@@ -69,6 +74,9 @@ class Dataset:
                     continue
             df = self.getSelectedDataframe(tree)
 
+            if self.SFSet:
+                self.addFlatSFtoDataframe(df)
+            
             evProcessed += len(df)
             logging.debug("File %s - Processed events %s", iFile, evProcessed)
 
@@ -111,7 +119,7 @@ class Dataset:
     def getBranchesFromFile(self, infile):
         """ Opens tree in a file with uproot and returns the branches (as strings!) """
         tree = root.open(infile)[self.treeName]
-        return [br.decode(self.encoding) for br in tree.keys()]
+        return [br.decode(self.encoding) for br in tree.keys() if br.decode(self.encoding) not in self.ignoreBranches]
 
     def addFiles(self, fileList):
         """ Function for adding files. For each file it is checked if the branches are the same in all """
@@ -125,7 +133,8 @@ class Dataset:
             if self.branches == self.getBranchesFromFile(f):
                 self.files.append(f)
             else:
-                raise RuntimeError("All files should have the same branches. Failed for file %s"%f)
+                d = list(set(self.branches) - set(self.getBranchesFromFile(f)))
+                raise RuntimeError("All files should have the same branches. Failed for file %s - Difference %s"%(f,d))
 
     def setOutputBranches(self, branchList):
         """ Sets the branches that should be present in the output file """
@@ -150,6 +159,9 @@ class Dataset:
         branchList = list(set(branchList)) # remove duplicated
 
         for br in branchList:
+            if br in self.ignoreBranches:
+                logging.warning("Skipping %s because in ignore list",br)
+                continue
             logging.debug("Adding output branch: %s", br)
             if br not in self.branches:
                 raise KeyError("Branch %s not in tree branches"%br)
@@ -158,6 +170,15 @@ class Dataset:
 
         self.outputBranchesSet = True
 
+    def cleanBranchList(self, excludeBranches):
+        if not self.outputBranchesSet:
+            raise RuntimeError("Branches have to be set before exlcuding")
+        logging.debug("Will remove %s if present")
+        for exclusion in excludeBranches:
+            logging.debug("Will remove %s if present")
+            if exclusion in self.outputBranches:
+                self.outputBranches.remove(exclusion)       
+ 
     def _resolveWildcardBranch(self, selector):
         if not "*" in selector:
             raise RuntimeError("No wildcard - * - in passed selector %s"%selector)
@@ -186,18 +207,35 @@ class Dataset:
     def getSelectedDataframe(self, tree):
         """ Function for getting the tree entries as dataframe and apply the selection """
         fullDF = tree.pandas.df()
-        logging.info("Entries in dataframe: %s", len(fullDF))
+        logging.debug("Entries in dataframe: %s", len(fullDF))
         if self.sampleSelection != "":
             selectedDF = fullDF.query(self.sampleSelection)
-            logging.info("Entries in dataframe after sample selection: %s", len(selectedDF))
+            logging.debug("Entries in dataframe after sample selection: %s", len(selectedDF))
         else:
             selectedDF = fullDF
             logging.info("No sample selection applied")
 
         if self.selection != "":
             selectedDF = selectedDF.query(self.selection)
-            logging.info("Entries in dataframe after selection: %s", len(selectedDF))
+            logging.debug("Entries in dataframe after selection: %s", len(selectedDF))
         else:
             logging.info("No sample selection applied")
 
         return selectedDF
+
+    def setSF(self, SF, name):
+        if not isinstance(SF, float):
+            raise TypeError("SF needs to be float")
+        if not isinstance(name, str):
+            raise TypeError("SF name needs to be string")
+
+        self.SF = SF
+        self.SFName = name
+        self.SFSet = True
+        
+    def addFlatSFtoDataframe(self, df):
+        if not self.SFSet:
+            raise RuntimeError("SF not set")
+
+        SFColumn = len(df)*[self.SF]
+        df[self.SFName] = SFColumn

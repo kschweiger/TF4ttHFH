@@ -29,6 +29,8 @@ def getWeights(dataframe, addWeights=[]):
         thisPUWeight = "puWeight"
     elif "weightPURecalc" in dataframe:
         thisPUWeight = "weightPURecalc"
+    elif "weight_pu" in dataframe:
+        thisPUWeight = "weight_pu"
     else:
         raise KeyError("No valid PU weight found")
     

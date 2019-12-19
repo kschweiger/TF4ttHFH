@@ -3,7 +3,7 @@ import os
 import glob
 import logging
 
-from utils.utils import initLogging, checkNcreateFolder
+from utils import initLogging, checkNcreateFolder
 
 def main(base, output):
     logging.info("Got base: %s", base)
