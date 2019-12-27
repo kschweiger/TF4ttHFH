@@ -55,8 +55,38 @@ class Sample:
 
         ##### Add combined wightes to the dataframe
         # It is expected that all these weights are present in the dataset- even if they are all 1.0
-        logging.warning("Trigger weight disabled")
-        df = df.assign(weight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr)# * x.triggerWeight)
+        #logging.warning("Trigger weight disabled")
+        # NOTE: Some ugly code here that can be removed once files are generated with a consitant configuration. At this point mainly the data is the problem
+        #       Once consitant keep only first if clause.
+        #################################################### TEMP CODE ###############################################################
+        if "btagDeepFlavWeight_shape" in df:
+            if "sampleRatio" in df:
+                maxRatioW = 1/max(df["sampleRatio"])
+                df = df.assign(weight=lambda x: x.weight_pu * x.genWeight * x.btagDeepFlavWeight_shape * x.weight_CRCorr * x.triggerWeight * maxRatioW * x.sampleRatio)
+            else:
+                df = df.assign(weight=lambda x: x.weight_pu * x.genWeight * x.btagDeepFlavWeight_shape * x.weight_CRCorr * x.triggerWeight)
+        else: # Only in data atm
+            logging.error("I have a file with the old btagWeight here. Make sure this is okay")
+            if "sampleRatio" in df:
+                maxRatioW = 1/max(df["sampleRatio"])
+                if "weight_pu" in df:
+                    df = df.assign(weight=lambda x: x.weight_pu * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight * maxRatioW * x.sampleRatio)
+                elif "weightPURecalc" in df: #2016 adn 2017
+                    logging.error("Found a file with weightPURecalc. Make sure this is okay")
+                    df = df.assign(weight=lambda x: x.weightPURecalc * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight * maxRatioW * x.sampleRatio)
+                else: # 2018
+                    logging.error("Found a file with puWeight. Make sure this is okay")
+                    df = df.assign(weight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight * maxRatioW * x.sampleRatio)
+            else:
+                if "weight_pu" in df:
+                    df = df.assign(weight=lambda x: x.weight_pu * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight)
+                elif "weightPURecalc" in df: #2016 adn 2017
+                    logging.error("Found a file with weightPURecalc. Make sure this is okay")
+                    df = df.assign(weight=lambda x: x.weightPURecalc * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight)
+                else: # 2018
+                    logging.error("Found a file with puWeight. Make sure this is okay")
+                    df = df.assign(weight=lambda x: x.puWeight * x.genWeight * x.btagWeight_shape * x.weight_CRCorr * x.triggerWeight)
+        #################################################### TEMP CODE ###############################################################
         if includeGenWeight:
             logging.warning("Will include xsec and nGen in train weight")
             logging.debug("Which are: xsec = %s and nGen = %s", self.xsec, self.nGen )
@@ -107,6 +137,7 @@ class Data:
         if testPercent > 1.0:
             raise ValueError("testPercent is required to be less than 1. Passed value = %s"%testPercent)
         logging.debug("Using lumi = %s", lumi)
+        logging.info("ShuffelData is %s", shuffleData)
         trainDataframes = []
         classes = {}
         for sample in samples:

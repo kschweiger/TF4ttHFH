@@ -49,6 +49,7 @@ class TrainingConfig(ConfigReaderBase):
         self.trainingVariables = self.getList(self.readConfig.get("General", "trainingVariables"))
         logging.debug("Got %s input variables", len(self.trainingVariables))
         self.lumi = self.setOptionWithDefault("General", "lumi", 1.0, "float")
+        self.includeGenWeight = self.setOptionWithDefault("General", "includeGenWeight", True, "bool")
         self.testPercent = self.readConfig.getfloat("General", "testPercentage")
         self.samples = self.getList(self.readConfig.get("General", "samples"))
 
@@ -113,7 +114,7 @@ def trainDNN(config, batch=False, addMetrics=["MEM"]):
     shutil.copy2(config.path, config.output+"/usedConfig.cfg")
 
     logging.info("Initializing samples and data")
-    allSample, data = initialize(config, incGenWeights=True)
+    allSample, data = initialize(config, incGenWeights=config.includeGenWeight)
 
     logging.info("Initializing DNN")
     thisDNN = DNN(

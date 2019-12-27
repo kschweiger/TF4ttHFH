@@ -42,6 +42,8 @@ class EvalConfig(ConfigReaderBase):
         self.plottingRangeMin = self.readConfig.getfloat("Plotting","binRangeMin")
         self.plottingRangeMax = self.readConfig.getfloat("Plotting","binRangeMax")
         self.plotAdditionalDisc = self.setOptionWithDefault("Plotting", "addDiscriminators", None)
+        self.includeGenWeight = self.setOptionWithDefault("General", "includeGenWeight", True, "bool")
+        
         if self.plotAdditionalDisc is None:
             self.plotAdditionalDisc = []
         else:
@@ -155,7 +157,8 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                     binRange = (config.plottingRangeMin, config.plottingRangeMax),
                     varAxisName = "DNN Prediction",
                     legendEntries = classLegend,
-                    normalized = True)
+                    normalized = True,
+                    drawLumi=config.lumi)
     
 
     bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
@@ -278,7 +281,7 @@ def evalDNN(config):
     checkNcreateFolder(config.plottingOutput, onlyFolder=True)
     logging.info("Initializing samples and data")
 
-    allSample, data = initialize(config)
+    allSample, data = initialize(config, incGenWeights=config.includeGenWeight)
 
     thisDNN = DNN(
         identifier = config.trainingConifg.net.name,

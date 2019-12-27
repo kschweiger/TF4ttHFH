@@ -33,8 +33,14 @@ def getWeights(dataframe, addWeights=[]):
         thisPUWeight = "weight_pu"
     else:
         raise KeyError("No valid PU weight found")
+
+    if "btagDeepFlavWeight_shape" in dataframe:
+        btagWeight = "btagDeepFlavWeight_shape"
+    else:
+        #Only in data in v1p1
+        btagWeight = "btagWeight_shape"
     
-    standardWeights = [thisPUWeight, "genWeight", "btagWeight_shape", "weight_CRCorr", "triggerWeight"]
+    standardWeights = [thisPUWeight, "genWeight", btagWeight, "weight_CRCorr", "triggerWeight"]
     retWeight = None
     for weight in standardWeights+addWeights:
         if retWeight is None:
