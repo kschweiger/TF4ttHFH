@@ -79,7 +79,7 @@ class EvalConfig(ConfigReaderBase):
         self.lumi = self.readConfig.getfloat("General", "lumi")
                 
         self.sampleInfos = {}
-        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection"])
+        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection", "color"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
@@ -89,8 +89,21 @@ class EvalConfig(ConfigReaderBase):
                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
                                                    datatype =  self.readConfig.get(sample, "datatype"),
-                                                   selection =  self.setOptionWithDefault(sample, "selection", None))
+                                                   selection =  self.setOptionWithDefault(sample, "selection", None),
+                                                   color =  self.setOptionWithDefault(sample, "color", None))
 
+
+        self.forceColors = None
+        _forceColors = []
+        for sample in self.samples:
+            if self.sampleInfos[sample].color is not None:
+                _forceColors.append("#"+self.sampleInfos[sample].color)
+
+        if len(_forceColors) == len(self.samples):
+            self.forceColors = _forceColors
+        else:
+            logging.info("Will use default colors ")
+            
         logging.debug("----- Config -----")
         logging.debug("trainingOutput: %s",self.trainingOutput)
         logging.debug("lumi: %s",self.lumi)
@@ -103,11 +116,13 @@ class EvalConfig(ConfigReaderBase):
         logging.debug("samples: %s",self.samples)
         logging.debug("signalSampleGroup: %s",self.signalSampleGroup)
         logging.debug("  groups: %s",self.sampleGroups)
-        for sample in self.samples:
+        for sample in self.samples: 
             logging.debug("  Sample: %s", sample)
             logging.debug("    xsec: %s", self.sampleInfos[sample].xsec)
             logging.debug("    nGen: %s", self.sampleInfos[sample].nGen)
+            logging.debug("    color: %s", self.sampleInfos[sample].color)
             logging.debug("    datatype: %s", self.sampleInfos[sample].datatype)
+        logging.debug("forceColors : %s", self.forceColors)
             
 def getValues(config, allSample, data, thisDNN):
     logging.info("Getting values")
@@ -158,7 +173,8 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                     varAxisName = "DNN Prediction",
                     legendEntries = classLegend,
                     normalized = True,
-                    drawLumi=config.lumi)
+                    drawLumi=config.lumi,
+                    forceColor=config.forceColors)
     
 
     bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
@@ -171,11 +187,11 @@ def evalDNN_binary(config, allSample, data, thisDNN):
         nSignal = len(predictions[config.signalSampleGroup][:,0])
         nBackgorund = len(predictions[bkg][:,0])
         ROCPlotvals[bkg+"DNN"], AUCPlotvals[bkg+"DNN"] = getROCs(np.append(np.array(nSignal*[0]),
-                                                               np.array(nBackgorund*[1])),
-                                                     np.append(predictions[config.signalSampleGroup][:,0],
-                                                               predictions[bkg][:,0]),
-                                                     np.append(weights[config.signalSampleGroup],
-                                                               weights[bkg]))
+                                                                           np.array(nBackgorund*[1])),
+                                                                 np.append(predictions[config.signalSampleGroup][:,0],
+                                                                           predictions[bkg][:,0]),
+                                                                 np.append(weights[config.signalSampleGroup],
+                                                                           weights[bkg]))
         
         ROCPlotLabels.append("DNN : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+"DNN"]))
         for addDisc in config.plotAdditionalDisc:
@@ -189,10 +205,16 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                                                          
             ROCPlotLabels.append("{3} : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+addDisc], addDisc))
 
+    ROCColors = []
+    for c in config.forceColors[1:]:
+        ROCColors.append(c)
+        ROCColors.append(c)
+            
     makeROCPlot(ROCPlotvals, AUCPlotvals,
                 output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "ROCs"),
                 passedLegend = ROCPlotLabels,
-                colorOffset = 1)
+                forceColor = ROCColors,
+                alternateDash = True)
         
 
 def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):

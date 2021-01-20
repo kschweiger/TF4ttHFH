@@ -9,31 +9,41 @@ import numpy as np
 def getColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True, drawCMS = "Preliminary", drawLumi = 10.00):
+def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True, drawCMS = "Preliminary", drawLumi = 10.00, forceColor=None, catLabel=None, yScale=1.25):
     fig, base = plt.subplots(dpi=150)
     for iVal, values in enumerate(listOfValues):
         if listOfWeights is not None:
             thisWeight = listOfWeights[iVal]
         else:
             thisWeight = None
+
+        if forceColor is not None:
+            thisColor = forceColor[iVal]
+        else:
+            thisColor = getColors()[iVal]
+
         h = base.hist(values,
                       bins=nBins,
                       range=binRange,
                       linewidth=2,
                       density=normalized,
                       weights=thisWeight,
-                      color = getColors()[iVal],
+                      color = thisColor,
                       log=log,
                       histtype='step')
 
-    base.set_xlabel(varAxisName)
+    base.set_xlabel(varAxisName, fontsize=13)
     if normalized:
-        base.set_ylabel("Normalized Units")
+        base.set_ylabel("Normalized Units", fontsize=13)
     else:
-        base.set_ylabel("Events")
+        base.set_ylabel("Events", fontsize=13)
     base.set_xlim(binRange)
+
+    ymin, ymax = base.get_ylim()
+    base.set_ylim((ymin, ymax*yScale))
     base.grid(False)
-    base.legend(legendEntries)
+    base.legend(legendEntries, fontsize=13)
+    logging.debug("Legend: %s", legendEntries)
     if drawCMS is not None:
         if isinstance(drawCMS, str):
             base.text(0.0, 1.01, "CMS", transform=base.transAxes,
@@ -62,6 +72,17 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
         else:
             raise NotImplementedError("Pass list or strings as text")
 
+    if catLabel is not None:
+        if isinstance(catLabel, str):
+            base.text(0.025, 0.94, catLabel, transform=base.transAxes, fontsize=12)
+        elif isinstance(catLabel, list):
+            if len(catLabel) != 2:
+                raise NotImplementedError
+            base.text(0.025, 0.94, catLabel[0], transform=base.transAxes, fontsize=12)
+            base.text(0.025, 0.88, catLabel[1], transform=base.transAxes, fontsize=12)
+        else:
+             raise NotImplementedError("Pass strings as catLabel. But is %s"%type(catLabel))
+        
     logging.info("Saving file: {0}".format(output+".pdf"))
     if savePDF:
         plt.savefig(output+".pdf")
@@ -93,7 +114,7 @@ def make1DPlot(listOfValueTupless, output, xAxisName, yAxisName, legendEntries, 
 
     return True
         
-def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0):
+def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0, forceColor = None, alternateDash = False):
     """
     Plot ROCs passed to function. 
 
@@ -112,11 +133,23 @@ def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0):
         if passedLegend is None:
             legendEntries.append("{0} - AUC = {1:.2f}".format(key, AUCs[key]))
 
-
+    if forceColor is not None and not alternateDash:
+        assert len(plotVals) == len(forceColor)
+        logging.info("Forcing colors to : %s",forceColor )
     for iVal, values in enumerate(plotVals):
+        if forceColor is not None:
+            thisColor = forceColor[iVal]
+        else:
+            thisColor = getColors()[iVal+colorOffset]
+
+        thisStyle = "solid"
+        if alternateDash and iVal%2 == 1:
+            thisStyle = "dashed"
+            
         xData, yData = values
         p = base.plot(xData, yData,
-                      color = getColors()[iVal+colorOffset])
+                      color = thisColor,
+                      linestyle=thisStyle)
     
     p = base.plot(np.array([0,1]), np.array([0,1]),
                   color='black',

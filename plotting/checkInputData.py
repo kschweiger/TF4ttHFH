@@ -117,7 +117,7 @@ def generateVariableList(dataframe, whitelist, blacklist):
     logging.debug("Resulting whitelist = %s", whitelist)
     return whitelist
 
-def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True, drawStats=True, lumi=None):
+def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True, drawStats=True, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25):
     """ Function for plotting the passed variable from all passed dataframes """
     # TODO: Implement weights
     logging.info("Entering plotDataframeVars")
@@ -163,9 +163,12 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
                            normalized=normalized,
                            #text=texts,
                            #xtextStart=0.25,
-                           drawCMS = "Preliminary",
+                           drawCMS = drawCMS,
                            drawLumi = lumi,
-                           savePDF=savePDF)
+                           savePDF=savePDF,
+                           forceColor = forceColor,
+                           catLabel=catLabel,
+                           yScale=yScale)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
     """ Function for plotting correlation between 2 variables of the passed dataframe """
@@ -256,7 +259,7 @@ def getCorrealtions(styleConfig, dataframe, outputPath, processVars, transform=F
     logging.info("Exiting function")
     return True
 
-def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False, lumi=None):
+def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25):
     """ 
     Function for plotting 1D distribution comparsions for all passed Dataframes 
     
@@ -270,6 +273,9 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
     if inputNames is None:
         inputNames = ["DF"+str(i) for i in range(len(inputDataframes))]
     assert len(inputNames) == len(inputDataframes)
+    if forceColor is not None:
+        assert len(inputNames) == len(forceColor)
+        logging.warning("Will force colors to : %s", forceColor)
     for i in range(len(inputDataframes)):
         inputNames[i] = "{0} ({1})".format(inputNames[i], inputDataframes[i].shape[0])
     #print(inputNames)
@@ -287,6 +293,10 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
             transform = transform,
             savePDF = True,
             lumi = lumi,
+            drawCMS = drawCMS,
+            forceColor = forceColor,
+            catLabel = catLabel,
+            yScale = yScale,
         )
         
     logging.info("Exiting function")
@@ -353,6 +363,13 @@ def parseArgs(args):
         default = "../data/plotStyle.cfg"
     )
     argumentparser.add_argument(
+        "--CMSString",
+        action="store",
+        type=str,
+        help="Will be added to the CMS label",
+        default = "Preliminary"
+    )
+    argumentparser.add_argument(
         "--plotCorr",
         action="store_true",
         help="Do correlation plots for all combination of passed variables",
@@ -403,6 +420,29 @@ def parseArgs(args):
         help="Lumi using in the plot as lumi label",
         default = None
     )
+    argumentparser.add_argument(
+        "--colors",
+        action="store",
+        nargs = "+",
+        type=str,
+        help="List of colors",
+        default = None
+    )
+    argumentparser.add_argument(
+        "--catlabel",
+        action="store",
+        type=str,
+        help="Categoy label",
+        default = None
+    )
+    argumentparser.add_argument(
+        "--yScale",
+        action="store",
+        type=float,
+        help="Upper bound of y axis will be scaled by this value",
+        default = 1.2
+    )
+    
     
     return argumentparser.parse_args(args)
 
@@ -471,7 +511,7 @@ def process(args, styleConfig):
         logging.info("Will plot distributions")
         thisOutput = args.output+"_dist_"
         checkNcreateFolder(thisOutput)
-        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized, args.transform, args.lumi)
+        getDistributions(styleConfig, inputDFs, thisOutput, vars2Process, args.inputNames, args.normalized, args.transform, args.lumi, args.CMSString, args.colors, args.catlabel, args.yScale)
             
 if __name__ == "__main__":
     args = parseArgs(sys.argv[1:])

@@ -193,7 +193,8 @@ class DNN(NetWork):
                   trainData, trainWeights, trainLabels,
                   variables, outputFolder, classes, 
                   plotMetics=False, saveData=False,
-                  plotPostFix="", addROCMetrics = []):
+                  plotPostFix="", addROCMetrics = [],
+                  forceColors=None):
         """ 
         Evaluate trained model. Do not pass categorical lables in case of multiclassification! Will be converted in function
         
@@ -280,7 +281,9 @@ class DNN(NetWork):
                 ROCMetrics[metric], AUCMetrics[metric] = getROCs(testLabels, values, testWeights)
 
             plotting.plotUtils.makeROCPlot(ROCMetrics, AUCMetrics,
-                                           output = outputFolder+"/"+self.name+"_ROC"+plotPostFix)
+                                           output = outputFolder+"/"+self.name+"_ROC"+plotPostFix,
+                                           forceColor = [forceColors[0], forceColors[0]],
+                                           alternateDash = True)
 
             legendTest = []
             legendTrain = []
@@ -296,7 +299,9 @@ class DNN(NetWork):
                                                legendEntries = legendTest,
                                                nBins = 30,
                                                binRange = (0,1),
-                                               normalized = True)
+                                               normalized = True,
+                                               drawLumi=None,
+                                               forceColor = forceColors)
 
             plotting.plotUtils.make1DHistoPlot(getSigBkgArrays(trainLabels, preditionTrain[:,0]),
                                                getSigBkgArrays(trainLabels, trainWeights),
@@ -305,7 +310,9 @@ class DNN(NetWork):
                                                legendEntries = legendTrain,
                                                nBins = 30,
                                                binRange = (0,1),
-                                               normalized = True)
+                                               normalized = True,
+                                               drawLumi=None,
+                                               forceColor = forceColors)
 
         if saveData:
             data2Pickle = {"variable" : variables,

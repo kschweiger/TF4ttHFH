@@ -94,7 +94,7 @@ class TrainingConfig(ConfigReaderBase):
         self.nLayers = len(self.net.layerDimentions)
         
         self.sampleInfos = {}
-        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection"])
+        sampleTuple = namedtuple("sampleTuple", ["input", "label", "xsec", "nGen", "datatype", "selection", "color"])
         
         for sample in self.samples:
             if not self.readConfig.has_section(sample):
@@ -104,8 +104,20 @@ class TrainingConfig(ConfigReaderBase):
                                                    xsec =  self.setOptionWithDefault(sample, "xsec", 1.0, "float"),
                                                    nGen =  self.setOptionWithDefault(sample, "nGen", 1.0, "float"),
                                                    datatype = self.readConfig.get(sample, "datatype"),
-                                                   selection = self.setOptionWithDefault(sample, "selection", None))
+                                                   selection = self.setOptionWithDefault(sample, "selection", None),
+                                                   color =  self.setOptionWithDefault(sample, "color", None))
             
+        self.forceColors = None
+        _forceColors = []
+        for sample in self.samples:
+            if self.sampleInfos[sample].color is not None:
+                _forceColors.append("#"+self.sampleInfos[sample].color)
+
+        if len(_forceColors) == len(self.samples):
+            self.forceColors = _forceColors
+        else:
+            logging.info("Will use default colors ")
+
             
 def trainDNN(config, batch=False, addMetrics=["MEM"]):
     logging.debug("Output folder")
@@ -188,7 +200,8 @@ def trainDNN(config, batch=False, addMetrics=["MEM"]):
                       data.outputClasses,
                       plotMetics=True,
                       saveData=True,
-                      addROCMetrics = ROCMetrics)
+                      addROCMetrics = ROCMetrics,
+                      forceColors=config.forceColors)
 
     logging.info("Saving model")
     thisDNN.saveModel(config.output, data.transformations)
