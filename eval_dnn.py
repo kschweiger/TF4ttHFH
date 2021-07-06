@@ -42,12 +42,32 @@ class EvalConfig(ConfigReaderBase):
         self.plottingRangeMin = self.readConfig.getfloat("Plotting","binRangeMin")
         self.plottingRangeMax = self.readConfig.getfloat("Plotting","binRangeMax")
         self.plotAdditionalDisc = self.setOptionWithDefault("Plotting", "addDiscriminators", None)
+        self.plotAdditionalDisc_bins = self.setOptionWithDefault("Plotting", "addDiscriminators_bins", None)
+        self.plotAdditionalDisc_binRangeMin = self.setOptionWithDefault("Plotting", "addDiscriminators_binRangeMin", None)
+        self.plotAdditionalDisc_binRangeMax = self.setOptionWithDefault("Plotting", "addDiscriminators_binRangeMax", None)
         self.includeGenWeight = self.setOptionWithDefault("General", "includeGenWeight", True, "bool")
+
+        self.plot_addDisc = False
         
         if self.plotAdditionalDisc is None:
             self.plotAdditionalDisc = []
         else:
             self.plotAdditionalDisc = self.getList(self.plotAdditionalDisc)
+            if (self.plotAdditionalDisc_bins is not None) and ( self.plotAdditionalDisc_binRangeMin is not None) and (self.plotAdditionalDisc_binRangeMax is not None):
+                self.plotAdditionalDisc_bins = self.getList(self.plotAdditionalDisc_bins)
+                self.plotAdditionalDisc_binRangeMin = self.getList(self.plotAdditionalDisc_binRangeMin)
+                self.plotAdditionalDisc_binRangeMax = self.getList(self.plotAdditionalDisc_binRangeMax)
+                
+                self.plotAdditionalDisc_bins = [int(x) for x in self.plotAdditionalDisc_bins]
+                self.plotAdditionalDisc_binRangeMin = [int(x) for x in self.plotAdditionalDisc_binRangeMin]
+                self.plotAdditionalDisc_binRangeMax = [int(x) for x in self.plotAdditionalDisc_binRangeMax]
+                
+                assert len(self.plotAdditionalDisc) == len(self.plotAdditionalDisc_bins)
+                assert len(self.plotAdditionalDisc) == len(self.plotAdditionalDisc_binRangeMin)
+                assert len(self.plotAdditionalDisc) == len(self.plotAdditionalDisc_binRangeMax)
+
+                self.plot_addDisc = True
+                
         self.loadTrainingData = self.readConfig.getboolean("General", "loadTrainingData")
 
         if self.loadTrainingData:
@@ -155,7 +175,7 @@ def getValues(config, allSample, data, thisDNN):
         
     return inputs, predictions, weights, labels, labelIDs
             
-def evalDNN_binary(config, allSample, data, thisDNN):
+def evalDNN_binary(config, allSample, data, data_raw, thisDNN, alternateDashed=False, saveVals=False):
     inputs, predictions, weights, labels, labelIDs = getValues(config, allSample, data, thisDNN)
             
     logging.info("Making discriminator comparison plot")
@@ -166,8 +186,27 @@ def evalDNN_binary(config, allSample, data, thisDNN):
         classLegend.append(group)
         classValues.append(predictions[group])
         classWeights.append(weights[group])
+        
+    output_file_name = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "Classifier")
+        
+    if saveVals:
+        vals_output = {}
+        weights_ouput = {}
+        for ielem, elem in enumerate(classLegend):
+            vals_output[elem] = classValues[ielem]
+            weights_ouput[elem] = classWeights[ielem]
+        
+        pickle.dump( {"values" : vals_output,
+                      "weights" : weights_ouput,
+                      "legend" : classLegend,
+                      "binning" : [config.plottingBins,
+                                   config.plottingRangeMin,
+                                   config.plottingRangeMax],
+                      "axisName" : "DNN Prediction"} ,
+                     open( output_file_name+".pkl", "wb" ) )
+        
     make1DHistoPlot(classValues, classWeights,
-                    output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "Classifier"),
+                    output = output_file_name,
                     nBins = config.plottingBins,
                     binRange = (config.plottingRangeMin, config.plottingRangeMax),
                     varAxisName = "DNN Prediction",
@@ -175,7 +214,47 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                     normalized = True,
                     drawLumi=config.lumi,
                     forceColor=config.forceColors)
-    
+
+
+    if config.plot_addDisc :
+        for iadd, addDisc in enumerate(config.plotAdditionalDisc):
+            output_file_name = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, addDisc)
+
+            addValues = []
+            addWeights = []
+            for group in data.keys():
+                addValues.append(data_raw[group].getTestData(asMatrix=False)[addDisc].values)
+                addWeights.append(weights[group])
+
+
+            make1DHistoPlot(addValues, addWeights,
+                            output = output_file_name,
+                            nBins = config.plotAdditionalDisc_bins[iadd],
+                            binRange = (config.plotAdditionalDisc_binRangeMin[iadd],
+                                        config.plotAdditionalDisc_binRangeMax[iadd]),
+                            varAxisName = addDisc,
+                            legendEntries = classLegend,
+                            normalized = True,
+                            drawLumi=config.lumi,
+                            forceColor=config.forceColors)
+
+            if saveVals:
+                vals_output = {}
+                weights_ouput = {}
+                for ielem, elem in enumerate(classLegend):
+                    vals_output[elem] = addValues[ielem]
+                    weights_ouput[elem] = addWeights[ielem]
+
+                
+                pickle.dump( {"values" : vals_output,
+                              "weights" : weights_ouput,
+                              "legend" : classLegend,
+                              "binning" : [config.plotAdditionalDisc_bins[iadd],
+                                           config.plotAdditionalDisc_binRangeMin[iadd],
+                                           config.plotAdditionalDisc_binRangeMax[iadd]],
+                              "axisName" : addDisc} ,
+                             open( output_file_name+".pkl", "wb" ) )
+
 
     bkgs = [g for g in data.keys() if g != config.signalSampleGroup]
 
@@ -205,16 +284,23 @@ def evalDNN_binary(config, allSample, data, thisDNN):
                                                          
             ROCPlotLabels.append("{3} : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+addDisc], addDisc))
 
+
     ROCColors = []
     for c in config.forceColors[1:]:
         ROCColors.append(c)
-        ROCColors.append(c)
-            
+        if alternateDashed:
+            ROCColors.append(c)            
+
+    output_file_name = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "ROCs")
+    if saveVals:
+        logging.info("Saving ROC vals to %s.plk", output_file_name)
+        pickle.dump( {"ROCs" : ROCPlotvals, "AUCs" : AUCPlotvals, "labels" : ROCPlotLabels}, open( output_file_name+".pkl", "wb" ) )
+        
     makeROCPlot(ROCPlotvals, AUCPlotvals,
-                output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "ROCs"),
+                output = output_file_name,
                 passedLegend = ROCPlotLabels,
                 forceColor = ROCColors,
-                alternateDash = True)
+                alternateDash = alternateDashed)
         
 
 def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):
@@ -240,9 +326,12 @@ def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):
             classLegend.append(group)
         classValues.append(combinePredictions[group])
         classWeights.append(weights[group])
+
+
+    output_file_name = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClassifier")
         
     make1DHistoPlot(classValues, classWeights,
-                    output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClassifier"),
+                    output = output_file_name,
                     nBins = config.plottingBins,
                     binRange = (config.plottingRangeMin, config.plottingRangeMax),
                     varAxisName = "DNN Discriminator",
@@ -274,9 +363,12 @@ def evalDNN_categorical(config, allSample, data, thisDNN, printMean=True):
 
                                                          
             ROCPlotLabels.append("{3} : {0} vs {1} - AUC {2:.2f}".format(config.signalSampleGroup, bkg, AUCPlotvals[bkg+addDisc], addDisc))
-        
+
+
+    output_file_name = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClass_ROCs")
+                
     makeROCPlot(ROCPlotvals, AUCPlotvals,
-                output = "{0}/{1}_{2}".format(config.plottingOutput, config.plottingPrefix, "CombClass_ROCs"),
+                output = output_file_name,
                 passedLegend = ROCPlotLabels,
                 colorOffset = 1)
 
@@ -299,11 +391,12 @@ def getCombinedPrediction(prediction, signalID, bkgIDs, bkgKappas=None):
     return prediction[:,signalID]/(prediction[:,signalID] + bkgSum)
 
     
-def evalDNN(config):
+def evalDNN(args, config):
     checkNcreateFolder(config.plottingOutput, onlyFolder=True)
     logging.info("Initializing samples and data")
 
     allSample, data = initialize(config, incGenWeights=config.includeGenWeight)
+    _, data_raw = initialize(config, incGenWeights=config.includeGenWeight, overwriteTransfrom=True)
 
     thisDNN = DNN(
         identifier = config.trainingConifg.net.name,
@@ -321,7 +414,7 @@ def evalDNN(config):
 
     if config.isBinaryModel:
         logging.info("Evaluation binary Model")
-        evalDNN_binary(config, allSample, data, thisDNN)
+        evalDNN_binary(config, allSample, data, data_raw, thisDNN, alternateDashed=args.alternateDashed, saveVals=args.saveVals)
     else:
         evalDNN_categorical(config, allSample, data, thisDNN)
 
@@ -347,6 +440,14 @@ def parseArgs(args):
         help="configuration file",
         required=True
     )
+    argumentparser.add_argument(
+        "--alternateDashed",
+        action="store_true",
+    )
+    argumentparser.add_argument(
+        "--saveVals",
+        action="store_true",
+    )
     return argumentparser.parse_args(args)
 
 
@@ -355,4 +456,4 @@ if __name__ == "__main__":
     initLogging(args.log)
     config = EvalConfig(args.config)
 
-    evalDNN(config)
+    evalDNN(args, config)

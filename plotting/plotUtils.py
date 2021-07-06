@@ -9,7 +9,7 @@ import numpy as np
 def getColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True, drawCMS = "Preliminary", drawLumi = 10.00, forceColor=None, catLabel=None, yScale=1.25):
+def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxisName, legendEntries, normalized=False, log=False, text=None, xtextStart=0, savePDF=True, drawCMS = "Preliminary", drawLumi = 10.00, forceColor=None, catLabel=None, yScale=1.25, alternateDashed = False, labelStartY=0.94):
     fig, base = plt.subplots(dpi=150)
     for iVal, values in enumerate(listOfValues):
         if listOfWeights is not None:
@@ -22,6 +22,11 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
         else:
             thisColor = getColors()[iVal]
 
+        thisStyle = "solid"
+        if alternateDashed and iVal%2 == 1:
+            thisStyle = "dashed"
+
+            
         h = base.hist(values,
                       bins=nBins,
                       range=binRange,
@@ -30,6 +35,7 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
                       weights=thisWeight,
                       color = thisColor,
                       log=log,
+                      linestyle=thisStyle,
                       histtype='step')
 
     base.set_xlabel(varAxisName, fontsize=13)
@@ -74,12 +80,12 @@ def make1DHistoPlot(listOfValues, listOfWeights, output, nBins, binRange, varAxi
 
     if catLabel is not None:
         if isinstance(catLabel, str):
-            base.text(0.025, 0.94, catLabel, transform=base.transAxes, fontsize=12)
+            base.text(0.025, labelStartY, catLabel, transform=base.transAxes, fontsize=12)
         elif isinstance(catLabel, list):
             if len(catLabel) != 2:
                 raise NotImplementedError
-            base.text(0.025, 0.94, catLabel[0], transform=base.transAxes, fontsize=12)
-            base.text(0.025, 0.88, catLabel[1], transform=base.transAxes, fontsize=12)
+            base.text(0.025, labelStartY, catLabel[0], transform=base.transAxes, fontsize=12)
+            base.text(0.025, labelStartY - 0.06, catLabel[1], transform=base.transAxes, fontsize=12)
         else:
              raise NotImplementedError("Pass strings as catLabel. But is %s"%type(catLabel))
         
@@ -114,7 +120,7 @@ def make1DPlot(listOfValueTupless, output, xAxisName, yAxisName, legendEntries, 
 
     return True
         
-def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0, forceColor = None, alternateDash = False):
+def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0, forceColor = None, alternateDash = False, drawCMS = "Preliminary", drawLumi = 10.00, catLabel = None, labelStartY=0.94):
     """
     Plot ROCs passed to function. 
 
@@ -155,14 +161,43 @@ def makeROCPlot(ROCs, AUCs, output, passedLegend=None, colorOffset=0, forceColor
                   color='black',
                   linestyle='dashed')
 
-    base.set_xlabel("True Postive Rate")
-    base.set_ylabel("False Postive Rate")
+    base.set_ylabel("True Postive Rate")
+    base.set_xlabel("False Postive Rate")
 
     base.grid(False)
     if passedLegend is None:
         base.legend(legendEntries)
     else:
         base.legend(passedLegend)
+
+    if drawCMS is not None:
+        if isinstance(drawCMS, str):
+            base.text(0.0, 1.01, "CMS", transform=base.transAxes,
+                      fontsize="xx-large", fontweight = "bold")
+            base.text(0.12, 1.01, drawCMS, transform=base.transAxes,
+                      fontsize="large", fontstyle = "italic") 
+        else:
+            raise TypeError("Pass string for drawCMS")
+    if drawLumi is not None:
+        if isinstance(drawLumi, float):
+            base.text(0.87
+                      , 1.01, "{0:.1f}".format(drawLumi)+" fb$^{-1}$",
+                      transform=base.transAxes,
+                      fontsize="medium")
+        else:
+            raise TypeError("Pass float for drawLumi")
+    if catLabel is not None:
+        if isinstance(catLabel, str):
+            base.text(0.025, labelStartY, catLabel, transform=base.transAxes, fontsize=12)
+        # elif isinstance(catLabel, list):
+        #     if len(catLabel) != 2:
+        #         raise NotImplementedError
+        #     base.text(0.025, labelStartY, catLabel[0], transform=base.transAxes, fontsize=12)
+        #     base.text(0.025, labelStartY - 0.06, catLabel[1], transform=base.transAxes, fontsize=12)
+        else:
+             raise NotImplementedError("Pass strings as catLabel. But is %s"%type(catLabel))
+
+        
     logging.info("Saving file: {0}".format(output+".pdf"))
     plt.savefig(output+".pdf")
 

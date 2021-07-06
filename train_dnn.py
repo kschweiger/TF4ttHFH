@@ -48,6 +48,7 @@ class TrainingConfig(ConfigReaderBase):
         self.output = self.readConfig.get("General", "output")
         self.trainingVariables = self.getList(self.readConfig.get("General", "trainingVariables"))
         logging.debug("Got %s input variables", len(self.trainingVariables))
+        logging.debug("INputs: %s", self.trainingVariables)
         self.lumi = self.setOptionWithDefault("General", "lumi", 1.0, "float")
         self.includeGenWeight = self.setOptionWithDefault("General", "includeGenWeight", True, "bool")
         self.testPercent = self.readConfig.getfloat("General", "testPercentage")
@@ -244,7 +245,7 @@ def parseArgs(args):
         action="store",
         nargs="+",
         help="Additional Metrics for evaluation",
-        default=["MEM"]
+        default=[""]
     )
     return argumentparser.parse_args(args)
 

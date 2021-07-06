@@ -90,7 +90,7 @@ class EvalConfig(ConfigReaderBase):
             
 
             
-def initialize(config, incGenWeights=False):
+def initialize(config, incGenWeights=False, overwriteTransfrom=False):
     """ Initialze samples and data  """
     #Get samples
     allSamples = {}
@@ -129,8 +129,9 @@ def initialize(config, incGenWeights=False):
             includeGenWeight = incGenWeights
         )
 
-        data[group].transformations = config.trainingTransfromation
-        data[group].doTransformation = True
+        if not overwriteTransfrom:
+            data[group].transformations = config.trainingTransfromation
+            data[group].doTransformation = True
     return allSamples, data
 
         

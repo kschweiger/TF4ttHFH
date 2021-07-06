@@ -24,6 +24,7 @@ def transformDataframe(dataframe, variables):
     return transformedDataframe
 
 def getWeights(dataframe, addWeights=[]):
+    logging.info("Applying weights")
     thisPUWeight = None
     if "puWeight" in dataframe:
         thisPUWeight = "puWeight"
@@ -117,7 +118,7 @@ def generateVariableList(dataframe, whitelist, blacklist):
     logging.debug("Resulting whitelist = %s", whitelist)
     return whitelist
 
-def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True, drawStats=True, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25):
+def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, varAxisName, normalized=False, transform=False, savePDF=True, drawStats=True, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25, labelStartY=0.94, addStats=True):
     """ Function for plotting the passed variable from all passed dataframes """
     # TODO: Implement weights
     logging.info("Entering plotDataframeVars")
@@ -149,7 +150,10 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
     if drawStats:
         #print(dfNames, texts)
         for iName in range(len(dfNames)):
-            legendStuff.append("{0}\n{1}".format(dfNames[iName], texts[iName]))
+            if addStats:
+                legendStuff.append("{0}\n{1}".format(dfNames[iName], texts[iName]))
+            else:
+                legendStuff.append("{0}".format(dfNames[iName]))
     else:
         legendStuff = dfNames
         
@@ -168,7 +172,8 @@ def plotDataframeVars(dataframes, output, variable, dfNames, nBins, binRange, va
                            savePDF=savePDF,
                            forceColor = forceColor,
                            catLabel=catLabel,
-                           yScale=yScale)
+                           yScale=yScale,
+                           labelStartY=labelStartY)
     
 def plotCorrelation(dataframe, output, variable1, nBins1, binRange1, var1AxisTitle, variable2, nBins2, binRange2, var2AxisTitle, transform=False, savePDF=True):
     """ Function for plotting correlation between 2 variables of the passed dataframe """
@@ -259,7 +264,7 @@ def getCorrealtions(styleConfig, dataframe, outputPath, processVars, transform=F
     logging.info("Exiting function")
     return True
 
-def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25):
+def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inputNames=None, drawNormalized=False, transform=False, lumi=None, drawCMS="Preliminary", forceColor=None, catLabel=None, yScale=1.25, addYields=True, labelStartY=0.94, addStats=True):
     """ 
     Function for plotting 1D distribution comparsions for all passed Dataframes 
     
@@ -270,22 +275,25 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
     """
     logging.info("Getting 1D dsitbutions for different dataframes")
     logging.debug("Dataframes passed: %s", len(inputDataframes))
-    if inputNames is None:
-        inputNames = ["DF"+str(i) for i in range(len(inputDataframes))]
-    assert len(inputNames) == len(inputDataframes)
+    inputNames_ = copy.copy(inputNames)
+    
+    if inputNames_ is None:
+        inputNames_ = ["DF"+str(i) for i in range(len(inputDataframes))]
+    assert len(inputNames_) == len(inputDataframes)
     if forceColor is not None:
-        assert len(inputNames) == len(forceColor)
+        assert len(inputNames_) == len(forceColor)
         logging.warning("Will force colors to : %s", forceColor)
     for i in range(len(inputDataframes)):
-        inputNames[i] = "{0} ({1})".format(inputNames[i], inputDataframes[i].shape[0])
-    #print(inputNames)
+        if addYields:
+            inputNames_[i] = "{0} ({1})".format(inputNames_[i], inputDataframes[i].shape[0])
+    #print(inputNames_)
     for variable in processVars:
         logging.info("Processing variable %s", variable)
         plotDataframeVars(
             dataframes = inputDataframes,
             output = outputPath+"_"+variable,
             variable = variable,
-            dfNames = inputNames,
+            dfNames = inputNames_,
             nBins = styleConfig.style[variable].nBins,
             binRange = styleConfig.style[variable].binRange,
             varAxisName = styleConfig.style[variable].axisName,
@@ -297,6 +305,8 @@ def getDistributions(styleConfig, inputDataframes, outputPath, processVars, inpu
             forceColor = forceColor,
             catLabel = catLabel,
             yScale = yScale,
+            labelStartY=labelStartY,
+            addStats = addStats,
         )
         
     logging.info("Exiting function")
